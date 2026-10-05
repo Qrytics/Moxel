@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { allFaces, faceRect, hitTest, mirrorMap, skinParts, SKIN_SIZE, upgradeLegacySkin } from '../src/minecraft/uv';
+import {
+	allFaces,
+	faceRect,
+	hitTest,
+	mirrorMap,
+	skinParts,
+	SKIN_SIZE,
+	upgradeLegacySkin
+} from '../src/minecraft/uv';
 import { skinSizeKind, validateSkin, validateTexture } from '../src/minecraft/validate';
 import { starterSkin } from '../src/minecraft/templates';
 
@@ -47,8 +55,14 @@ describe('skin UV layout', () => {
 			// Head front pixel (8,8) mirrors to (15,8).
 			expect(m[8 * 64 + 8]).toBe(8 * 64 + 15);
 			// Right arm front top-left ↔ left arm front top-right.
-			const ra = faceRect(skinParts(model).find((p) => p.id === 'rightArm')!, 'front');
-			const la = faceRect(skinParts(model).find((p) => p.id === 'leftArm')!, 'front');
+			const ra = faceRect(
+				skinParts(model).find((p) => p.id === 'rightArm')!,
+				'front'
+			);
+			const la = faceRect(
+				skinParts(model).find((p) => p.id === 'leftArm')!,
+				'front'
+			);
 			expect(m[ra.y * 64 + ra.x]).toBe(la.y * 64 + la.x + la.w - 1);
 		}
 	});
@@ -87,14 +101,15 @@ describe('skin validation', () => {
 		const px = starterSkin('classic');
 		px[(10 * 64 + 10) * 4 + 3] = 0;
 		expect(validateSkin(px, 64, 64, 'classic').some((i) => i.code === 'base-transparency')).toBe(true);
-		expect(validateSkin(starterSkin('classic'), 64, 64, 'slim').some((i) => i.code === 'model-mismatch')).toBe(true);
+		expect(
+			validateSkin(starterSkin('classic'), 64, 64, 'slim').some((i) => i.code === 'model-mismatch')
+		).toBe(true);
 	});
 
 	it('validates texture dimensions', () => {
 		expect(validateTexture({ width: 16, height: 16, frameCount: 1, textureType: 'block' })).toEqual([]);
-		expect(validateTexture({ width: 20, height: 16, frameCount: 1, textureType: 'block' }).map((i) => i.code)).toEqual([
-			'square',
-			'pow2'
-		]);
+		expect(
+			validateTexture({ width: 20, height: 16, frameCount: 1, textureType: 'block' }).map((i) => i.code)
+		).toEqual(['square', 'pow2']);
 	});
 });

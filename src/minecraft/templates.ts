@@ -31,7 +31,8 @@ function paintPart(buf: Uint8ClampedArray, model: SkinModel, id: PartId, color: 
 	const part = skinParts(model).find((p) => p.id === id)!;
 	for (const face of FACES) {
 		const r = faceRect(part, face);
-		const shade = face === 'top' ? 12 : face === 'bottom' ? -18 : face === 'back' ? -8 : face === 'front' ? 0 : -4;
+		const shade =
+			face === 'top' ? 12 : face === 'bottom' ? -18 : face === 'back' ? -8 : face === 'front' ? 0 : -4;
 		fillFace(buf, r.x, r.y, r.w, r.h, color, shade);
 	}
 }
@@ -112,5 +113,12 @@ export const TEXTURE_PRESETS: TexturePreset[] = [
 	{ id: 'item16', label: 'Item', type: 'item', width: 16, height: 16, hint: '16×16 · sprite' },
 	{ id: 'block32', label: 'HD block', type: 'block', width: 32, height: 32, hint: '32×32 · resource packs' },
 	{ id: 'gui256', label: 'GUI', type: 'gui', width: 256, height: 256, hint: '256×256 · containers' },
-	{ id: 'entity64', label: 'Mob / entity', type: 'entity', width: 64, height: 64, hint: '64×64 · entity sheet' }
+	{
+		id: 'entity64',
+		label: 'Mob / entity',
+		type: 'entity',
+		width: 64,
+		height: 64,
+		hint: '64×64 · entity sheet'
+	}
 ];

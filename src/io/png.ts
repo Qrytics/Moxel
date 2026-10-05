@@ -59,7 +59,12 @@ export function encodePNG(rgba: Uint8ClampedArray | Uint8Array, width: number, h
 		}
 	}
 	const idat = zlibSync(raw, { level: 9 });
-	const parts = [new Uint8Array(SIG), chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', new Uint8Array(0))];
+	const parts = [
+		new Uint8Array(SIG),
+		chunk('IHDR', ihdr),
+		chunk('IDAT', idat),
+		chunk('IEND', new Uint8Array(0))
+	];
 	const total = parts.reduce((s, p) => s + p.length, 0);
 	const out = new Uint8Array(total);
 	let off = 0;
@@ -163,7 +168,11 @@ export function decodePNG(bytes: Uint8Array): DecodedImage {
 				out[o + 1] = row[x * 3 + 1];
 				out[o + 2] = row[x * 3 + 2];
 				out[o + 3] =
-					trns && trns.length >= 6 && row[x * 3] === trns[1] && row[x * 3 + 1] === trns[3] && row[x * 3 + 2] === trns[5]
+					trns &&
+					trns.length >= 6 &&
+					row[x * 3] === trns[1] &&
+					row[x * 3 + 1] === trns[3] &&
+					row[x * 3 + 2] === trns[5]
 						? 0
 						: 255;
 			} else if (colorType === 0) {

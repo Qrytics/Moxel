@@ -55,7 +55,8 @@ describe('history', () => {
 	it('bounds entry count', () => {
 		const doc = MoxelDocument.create({ name: 'H', kind: 'canvas', width: 2, height: 2 });
 		const history = new History(doc, { maxEntries: 3 });
-		for (let i = 0; i < 10; i++) history.transact('x', (tx) => tx.apply({ t: 'setMeta', props: { name: `${i}` } }));
+		for (let i = 0; i < 10; i++)
+			history.transact('x', (tx) => tx.apply({ t: 'setMeta', props: { name: `${i}` } }));
 		expect(history.size).toBe(3);
 	});
 
@@ -65,7 +66,13 @@ describe('history', () => {
 		const red = new Uint8ClampedArray([255, 0, 0, 255]);
 		const inv = applyOp(doc, { t: 'patch', layerId: layer, frameId: frame, rect, data: red })!;
 		// A peer paints blue over the same pixel afterwards.
-		applyOp(doc, { t: 'patch', layerId: layer, frameId: frame, rect, data: new Uint8ClampedArray([0, 0, 255, 255]) });
+		applyOp(doc, {
+			t: 'patch',
+			layerId: layer,
+			frameId: frame,
+			rect,
+			data: new Uint8ClampedArray([0, 0, 255, 255])
+		});
 		applyOp(doc, inv);
 		expect(Array.from(doc.getCel(layer, frame)!.subarray(0, 4))).toEqual([0, 0, 255, 255]);
 	});

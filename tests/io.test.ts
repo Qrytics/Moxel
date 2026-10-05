@@ -3,7 +3,13 @@ import { MoxelDocument } from '../src/core/document/document';
 import { DocCommands } from '../src/core/document/commands';
 import { History } from '../src/core/history/history';
 import { decodePNG, encodePNG } from '../src/io/png';
-import { decodeMoxel, decodeProjectsFile, encodeBackup, encodeMoxel, ProjectFileError } from '../src/io/moxelFile';
+import {
+	decodeMoxel,
+	decodeProjectsFile,
+	encodeBackup,
+	encodeMoxel,
+	ProjectFileError
+} from '../src/io/moxelFile';
 import { exportFlattenedPNG } from '../src/io/export';
 
 describe('PNG codec', () => {
@@ -25,7 +31,13 @@ describe('PNG codec', () => {
 });
 
 function sampleDoc() {
-	const doc = MoxelDocument.create({ name: 'Round trip', kind: 'skin', width: 64, height: 64, model: 'classic' });
+	const doc = MoxelDocument.create({
+		name: 'Round trip',
+		kind: 'skin',
+		width: 64,
+		height: 64,
+		model: 'classic'
+	});
 	const cmd = new DocCommands(doc, new History(doc));
 	const top = cmd.addLayer('Hair');
 	cmd.setNodeProps(top, { opacity: 0.5, visible: false });

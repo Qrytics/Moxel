@@ -17,8 +17,11 @@ export type CommitKind = 'do' | 'undo' | 'redo';
 export interface HistoryOptions {
 	maxEntries?: number;
 	maxBytes?: number;
-	/** Called with the ops actually applied to the document — what a live session broadcasts. */
-	onApplied?: (ops: Op[], kind: CommitKind, label: string) => void;
+	/**
+	 * Called with the ops actually applied to the document and their inverses (index-aligned) —
+	 * what a live session broadcasts. Patch inverses carry both before (`data`) and after (`expect`).
+	 */
+	onApplied?: (ops: Op[], kind: CommitKind, label: string, inverses: Op[]) => void;
 }
 
 export class Transaction {
@@ -112,7 +115,7 @@ export class History {
 		this.bytes += bytes;
 		this.clearRedo();
 		this.trim();
-		this.onApplied?.(tx.ops, 'do', label);
+		this.onApplied?.(tx.ops, 'do', label, tx.inverse);
 		this.notify();
 		return true;
 	}
@@ -140,7 +143,7 @@ export class History {
 		};
 		this.redoStack.push(redo);
 		this.bytes += redo.bytes;
-		this.onApplied?.(applied, 'undo', e.label);
+		this.onApplied?.(applied, 'undo', e.label, redoInverse);
 		this.notify();
 		return true;
 	}
@@ -160,7 +163,7 @@ export class History {
 		}
 		this.undoStack.push({ label: e.label, ops, inverse, bytes: e.bytes, time: Date.now() });
 		this.bytes += e.bytes;
-		this.onApplied?.(ops, 'redo', e.label);
+		this.onApplied?.(ops, 'redo', e.label, inverse);
 		this.notify();
 		return true;
 	}

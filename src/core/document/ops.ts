@@ -22,7 +22,13 @@ export type Op =
 			/** When present, a pixel is only written if it currently equals `expect` — see `invertPatch`. */
 			expect?: Uint8ClampedArray;
 	  }
-	| { t: 'addNodes'; parentId: string | null; index: number; nodes: DocNode[]; cels: [string, Uint8ClampedArray][] }
+	| {
+			t: 'addNodes';
+			parentId: string | null;
+			index: number;
+			nodes: DocNode[];
+			cels: [string, Uint8ClampedArray][];
+	  }
 	| { t: 'removeNode'; id: string }
 	| { t: 'moveNode'; id: string; parentId: string | null; index: number }
 	| { t: 'setNode'; id: string; props: NodeProps }

@@ -12,7 +12,15 @@ export type SkinModel = 'classic' | 'slim';
 export type TextureType = 'block' | 'item' | 'gui' | 'entity' | 'other';
 export type BlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'add';
 
-export const BLEND_MODES: BlendMode[] = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'add'];
+export const BLEND_MODES: BlendMode[] = [
+	'normal',
+	'multiply',
+	'screen',
+	'overlay',
+	'darken',
+	'lighten',
+	'add'
+];
 
 interface NodeBase {
 	id: string;

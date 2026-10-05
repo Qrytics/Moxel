@@ -15,6 +15,8 @@ export interface AutosaveOptions {
 	/** Upper bound on how long continuous editing can postpone a save. */
 	maxWait?: number;
 	thumbnail?: (doc: MoxelDocument) => string | undefined | Promise<string | undefined>;
+	/** Called right before each write, e.g. to stash editor state (active layer, tool) in the document. */
+	prepare?: (doc: MoxelDocument) => void;
 	onChange?: (s: AutosaveState) => void;
 	live?: boolean;
 }
@@ -77,9 +79,14 @@ export class Autosaver {
 		this.set({ status: 'saving' });
 		this.saving = (async () => {
 			try {
+				this.opts.prepare?.(this.doc);
 				const thumbnail = await this.opts.thumbnail?.(this.doc);
 				await this.store.save(this.doc, { thumbnail, live: this.opts.live });
-				this.set({ status: this.store.persistent ? 'saved' : 'memory', lastSaved: Date.now(), error: undefined });
+				this.set({
+					status: this.store.persistent ? 'saved' : 'memory',
+					lastSaved: Date.now(),
+					error: undefined
+				});
 			} catch (e) {
 				this.set({ status: 'error', error: e instanceof Error ? e.message : String(e) });
 			}

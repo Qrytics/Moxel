@@ -72,9 +72,17 @@ export function decodeMoxel(bytes: Uint8Array, opts: { newId?: boolean } = {}): 
 	}
 	if (m.format !== 'moxel') throw new ProjectFileError('This file is not a Moxel project.');
 	if (typeof m.version !== 'number' || m.version > 1)
-		throw new ProjectFileError('This project was made with a newer version of Moxel. Reload the page to update.');
+		throw new ProjectFileError(
+			'This project was made with a newer version of Moxel. Reload the page to update.'
+		);
 	const { width, height } = m.meta ?? {};
-	if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || width * height > 4096 * 4096)
+	if (
+		!Number.isInteger(width) ||
+		!Number.isInteger(height) ||
+		width < 1 ||
+		height < 1 ||
+		width * height > 4096 * 4096
+	)
 		throw new ProjectFileError('The project has invalid canvas dimensions.');
 	const cels: [string, Uint8ClampedArray][] = [];
 	for (const c of m.cels ?? []) {
@@ -100,10 +108,24 @@ export function decodeMoxel(bytes: Uint8Array, opts: { newId?: boolean } = {}): 
 
 export function encodeBackup(docs: MoxelDocument[]): Uint8Array {
 	const files: Zippable = {};
-	const index = docs.map((d) => ({ id: d.meta.id, name: d.meta.name, path: `projects/${d.meta.id}${MOXEL_EXT}` }));
+	const index = docs.map((d) => ({
+		id: d.meta.id,
+		name: d.meta.name,
+		path: `projects/${d.meta.id}${MOXEL_EXT}`
+	}));
 	for (const d of docs) files[`projects/${d.meta.id}${MOXEL_EXT}`] = [encodeMoxel(d), { level: 0 }];
 	files['backup.json'] = strToU8(
-		JSON.stringify({ app: 'Moxel', format: 'moxel-backup', version: 1, createdAt: new Date().toISOString(), projects: index }, null, '\t')
+		JSON.stringify(
+			{
+				app: 'Moxel',
+				format: 'moxel-backup',
+				version: 1,
+				createdAt: new Date().toISOString(),
+				projects: index
+			},
+			null,
+			'\t'
+		)
 	);
 	return zipSync(files);
 }
@@ -126,5 +148,6 @@ export function decodeProjectsFile(bytes: Uint8Array): MoxelDocument[] {
 }
 
 export function safeFileName(name: string): string {
+	// eslint-disable-next-line no-control-regex -- control characters are exactly what must be stripped
 	return (name.trim() || 'untitled').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '_').slice(0, 80);
 }

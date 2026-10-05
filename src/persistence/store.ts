@@ -121,7 +121,9 @@ export class IDBProjectStore implements ProjectStore {
 
 	async load(id: string): Promise<MoxelDocument | null> {
 		const tx = this.db.transaction('docs', 'readonly');
-		const row = await req(tx.objectStore('docs').get(id) as IDBRequest<{ id: string; snapshot: DocSnapshot } | undefined>);
+		const row = await req(
+			tx.objectStore('docs').get(id) as IDBRequest<{ id: string; snapshot: DocSnapshot } | undefined>
+		);
 		return row ? MoxelDocument.fromSnapshot(row.snapshot) : null;
 	}
 

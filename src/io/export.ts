@@ -10,7 +10,11 @@ import { encodePNG } from './png';
  * document so they run in tests and can be moved into a worker wholesale.
  */
 
-export function flattenFrame(doc: MoxelDocument, frameId: string, scale = 1): { w: number; h: number; data: Uint8ClampedArray } {
+export function flattenFrame(
+	doc: MoxelDocument,
+	frameId: string,
+	scale = 1
+): { w: number; h: number; data: Uint8ClampedArray } {
 	const data = compositeFrame(doc, frameId);
 	if (scale === 1) return { w: doc.width, h: doc.height, data };
 	const w = doc.width * scale,
@@ -38,7 +42,8 @@ export function spriteSheet(doc: MoxelDocument, layout: SheetLayout, scale = 1) 
 		const { data } = flattenFrame(doc, f.id, scale);
 		const ox = (i % cols) * fw,
 			oy = Math.floor(i / cols) * fh;
-		for (let y = 0; y < fh; y++) out.set(data.subarray(y * fw * 4, (y + 1) * fw * 4), ((oy + y) * W + ox) * 4);
+		for (let y = 0; y < fh; y++)
+			out.set(data.subarray(y * fw * 4, (y + 1) * fw * 4), ((oy + y) * W + ox) * 4);
 	});
 	return { width: W, height: H, png: encodePNG(out, W, H), cols, rows };
 }

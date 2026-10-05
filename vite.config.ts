@@ -9,6 +9,19 @@ import { VitePWA } from 'vite-plugin-pwa';
  */
 const base = process.env.MOXEL_BASE ?? '/Moxel/';
 
+/**
+ * Live sessions talk to the signaling relay at `<base>signal` on the same origin — on the Pi, Caddy
+ * proxies that path to the relay container. `vite dev` / `vite preview` mirror that with a proxy to a
+ * local relay (`npm run signal`), so the client code has a single code path everywhere.
+ */
+const signalProxy = {
+	[`${base}signal`]: {
+		target: process.env.MOXEL_SIGNAL_TARGET ?? 'ws://localhost:8787',
+		ws: true,
+		changeOrigin: true
+	}
+};
+
 export default defineConfig({
 	base,
 	plugins: [
@@ -20,7 +33,8 @@ export default defineConfig({
 			manifest: {
 				name: 'Moxel',
 				short_name: 'Moxel',
-				description: 'Pixel art, animation and Minecraft skin & texture editor. Projects stay in your browser.',
+				description:
+					'Pixel art, animation and Minecraft skin & texture editor. Projects stay in your browser.',
 				theme_color: '#15161a',
 				background_color: '#15161a',
 				display: 'standalone',
@@ -42,6 +56,8 @@ export default defineConfig({
 			}
 		})
 	],
+	server: { proxy: signalProxy },
+	preview: { proxy: signalProxy },
 	worker: { format: 'es' },
 	build: {
 		target: 'es2022',

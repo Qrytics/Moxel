@@ -27,7 +27,9 @@ describe('IndexedDB project store', () => {
 
 		const loaded = (await store.load(doc.meta.id))!;
 		expect(loaded.meta.skin?.model).toBe('slim');
-		expect(Array.from(loaded.getCel(loaded.root[0], loaded.frames[0].id)!.subarray(0, 4))).toEqual([10, 20, 30, 255]);
+		expect(Array.from(loaded.getCel(loaded.root[0], loaded.frames[0].id)!.subarray(0, 4))).toEqual([
+			10, 20, 30, 255
+		]);
 		expect((await store.getMeta(doc.meta.id))?.thumbnail).toContain('data:image');
 	});
 
@@ -84,7 +86,11 @@ describe('autosave', () => {
 		const save = vi.spyOn(store, 'save');
 		const doc = makeDoc();
 		const states: AutosaveState['status'][] = [];
-		const a = new Autosaver(store, doc, { delay: 500, maxWait: 5000, onChange: (s) => states.push(s.status) });
+		const a = new Autosaver(store, doc, {
+			delay: 500,
+			maxWait: 5000,
+			onChange: (s) => states.push(s.status)
+		});
 		for (let i = 0; i < 10; i++) {
 			a.markDirty();
 			await vi.advanceTimersByTimeAsync(100);

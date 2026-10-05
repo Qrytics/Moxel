@@ -127,7 +127,8 @@ export function validateTexture(t: TextureValidationInput): ValidationIssue[] {
 			issues.push({
 				severity: 'warning',
 				code: 'pow2',
-				message: 'Minecraft texture sizes should be powers of two (16, 32, 64…). Other sizes may be resampled or rejected.'
+				message:
+					'Minecraft texture sizes should be powers of two (16, 32, 64…). Other sizes may be resampled or rejected.'
 			});
 		else if (t.width !== 16)
 			issues.push({

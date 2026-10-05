@@ -40,7 +40,12 @@ export class DocCommands {
 		return layer.id;
 	}
 
-	addLayerWithPixels(name: string, frameId: string, pixels: Uint8ClampedArray, aboveId?: string | null): string {
+	addLayerWithPixels(
+		name: string,
+		frameId: string,
+		pixels: Uint8ClampedArray,
+		aboveId?: string | null
+	): string {
 		const layer = newLayer(name);
 		const { parentId, index } = this.placeAbove(aboveId);
 		this.history.transact(`Add “${name}”`, (tx) =>
@@ -217,7 +222,10 @@ export class DocCommands {
 	addFrame(afterId: string | null, duplicate: boolean): string {
 		const index = afterId ? this.doc.frameIndex(afterId) + 1 : this.doc.frames.length;
 		const ref = afterId ? this.doc.frames.find((f) => f.id === afterId) : this.doc.frames.at(-1);
-		const frame: Frame = { id: uid('f'), duration: ref?.duration ?? Math.round(1000 / this.doc.meta.animation.fps) };
+		const frame: Frame = {
+			id: uid('f'),
+			duration: ref?.duration ?? Math.round(1000 / this.doc.meta.animation.fps)
+		};
 		const cels: [string, Uint8ClampedArray][] = [];
 		if (duplicate && afterId) {
 			for (const l of this.doc.layersBottomUp()) {
@@ -305,7 +313,9 @@ export class DocCommands {
 	}
 
 	scaleImage(width: number, height: number) {
-		this.transformCanvas('Scale image', width, height, (src, ow, oh) => scaleNearest(src, ow, oh, width, height));
+		this.transformCanvas('Scale image', width, height, (src, ow, oh) =>
+			scaleNearest(src, ow, oh, width, height)
+		);
 	}
 
 	flipCanvas(axis: 'h' | 'v') {

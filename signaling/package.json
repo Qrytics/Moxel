@@ -1,0 +1,15 @@
+{
+	"name": "moxel-signal",
+	"private": true,
+	"type": "module",
+	"description": "WebRTC signaling relay for Moxel live sessions. Forwards handshakes only; stores nothing.",
+	"scripts": {
+		"start": "node server.mjs"
+	},
+	"engines": {
+		"node": ">=20"
+	},
+	"dependencies": {
+		"ws": "^8.18.0"
+	}
+}
