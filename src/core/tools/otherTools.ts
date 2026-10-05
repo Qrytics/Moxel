@@ -2,7 +2,7 @@ import { compositeFrame } from '../render/composite';
 import { floodMask, type Point, type SelectMode } from '../selection/selection';
 import { invertPatch } from '../document/ops';
 import { pixelsEqual, readRect, unionRect } from '../document/pixels';
-import type { Rect } from '../document/types';
+import { isPaint, type Rect } from '../document/types';
 import { Transaction } from '../history/history';
 import { canEdit } from './paintTools';
 import { linePixels, stampDab, StrokeSession } from './stroke';
@@ -60,16 +60,72 @@ function drawShape(s: StrokeSession, kind: ShapeKind, a: Point, b: Point, size: 
 		}
 }
 
+/**
+ * Paint-document shapes: sub-pixel endpoints and anti-aliased dabs walked along the outline at
+ * fine spacing, instead of Bresenham steps.
+ */
+function drawSmoothShape(
+	s: StrokeSession,
+	kind: ShapeKind,
+	a: Point,
+	b: Point,
+	size: number,
+	filled: boolean
+) {
+	const step = Math.max(0.25, size * 0.15);
+	const pen = (x: number, y: number) => stampDab(s, x, y, size, 1, 'round', false, 1, null);
+	const segment = (p: Point, q: Point) => {
+		const n = Math.max(1, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / step));
+		for (let i = 0; i <= n; i++) pen(p.x + ((q.x - p.x) * i) / n, p.y + ((q.y - p.y) * i) / n);
+	};
+	if (kind === 'line') return segment(a, b);
+	const x0 = Math.min(a.x, b.x),
+		y0 = Math.min(a.y, b.y),
+		x1 = Math.max(a.x, b.x),
+		y1 = Math.max(a.y, b.y);
+	if (kind === 'rect') {
+		if (filled)
+			for (let y = Math.ceil(y0); y < Math.floor(y1); y++)
+				for (let x = Math.ceil(x0); x < Math.floor(x1); x++) s.plot(x, y, 1);
+		segment({ x: x0, y: y0 }, { x: x1, y: y0 });
+		segment({ x: x1, y: y0 }, { x: x1, y: y1 });
+		segment({ x: x1, y: y1 }, { x: x0, y: y1 });
+		segment({ x: x0, y: y1 }, { x: x0, y: y0 });
+		return;
+	}
+	const cx = (x0 + x1) / 2,
+		cy = (y0 + y1) / 2;
+	const rx = Math.max(0.5, (x1 - x0) / 2),
+		ry = Math.max(0.5, (y1 - y0) / 2);
+	if (filled)
+		for (let y = Math.floor(y0); y <= Math.ceil(y1); y++)
+			for (let x = Math.floor(x0); x <= Math.ceil(x1); x++) {
+				const dx = (x + 0.5 - cx) / rx,
+					dy = (y + 0.5 - cy) / ry;
+				if (dx * dx + dy * dy <= 1) s.plot(x, y, 1);
+			}
+	const perimeter = 2 * Math.PI * Math.sqrt((rx * rx + ry * ry) / 2);
+	const n = Math.max(8, Math.ceil(perimeter / step));
+	for (let i = 0; i < n; i++) {
+		const t = (i / n) * Math.PI * 2;
+		pen(cx + Math.cos(t) * rx, cy + Math.sin(t) * ry);
+	}
+}
+
 function shapeTool(kind: ShapeKind): Tool {
 	let s: StrokeSession | null = null;
 	let start: Point | null = null;
+	let smooth = false;
+	const at = (p: PointerInfo): Point =>
+		smooth ? { x: p.x, y: p.y } : { x: Math.floor(p.x), y: Math.floor(p.y) };
 	return {
 		id: kind,
 		cursor: 'crosshair',
 		edits: true,
 		onDown(ctx, p) {
 			if (!canEdit(ctx)) return;
-			start = { x: Math.floor(p.x), y: Math.floor(p.y) };
+			smooth = isPaint(ctx.doc.meta);
+			start = at(p);
 			s = new StrokeSession(
 				ctx.doc,
 				ctx.layerId,
@@ -84,12 +140,18 @@ function shapeTool(kind: ShapeKind): Tool {
 		},
 		onMove(ctx, p) {
 			if (!s || !start) return;
-			let end = { x: Math.floor(p.x), y: Math.floor(p.y) };
-			end = constrain(kind, start, end, p.shift);
+			const end = constrain(kind, start, at(p), p.shift);
 			let a = start;
 			if (p.alt && kind !== 'line') a = { x: 2 * start.x - end.x, y: 2 * start.y - end.y }; // from centre
 			s.reset();
-			drawShape(s, kind, a, end, ctx.settings.shape.size, ctx.settings.shape.filled && kind !== 'line');
+			(smooth ? drawSmoothShape : drawShape)(
+				s,
+				kind,
+				a,
+				end,
+				ctx.settings.shape.size,
+				ctx.settings.shape.filled && kind !== 'line'
+			);
 			s.flush();
 		},
 		onUp(ctx) {

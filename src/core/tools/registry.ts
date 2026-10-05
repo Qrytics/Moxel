@@ -1,4 +1,6 @@
+import type { DocKind } from '../document/types';
 import { brushTool, cloneTool, eraserTool, pencilTool } from './paintTools';
+import { byDocKind, gradientTool, paintModeTool } from './paintModeTools';
 import {
 	ellipseTool,
 	eyedropperTool,
@@ -16,9 +18,9 @@ import {
 import type { Tool, ToolId } from './types';
 
 export const TOOLS: Record<ToolId, Tool> = {
-	brush: brushTool,
+	brush: byDocKind(brushTool, paintModeTool('brush', 'paint')),
 	pencil: pencilTool,
-	eraser: eraserTool,
+	eraser: byDocKind(eraserTool, paintModeTool('eraser', 'erase')),
 	fill: fillTool,
 	eyedropper: eyedropperTool,
 	line: lineTool,
@@ -31,7 +33,10 @@ export const TOOLS: Record<ToolId, Tool> = {
 	move: moveTool,
 	clone: cloneTool,
 	hand: handTool,
-	zoom: zoomTool
+	zoom: zoomTool,
+	smudge: paintModeTool('smudge', 'smudge'),
+	blur: paintModeTool('blur', 'blur'),
+	gradient: gradientTool
 };
 
 export interface ToolInfo {
@@ -40,7 +45,16 @@ export interface ToolInfo {
 	key?: string;
 	group: 'select' | 'paint' | 'shape' | 'color' | 'view';
 	hint: string;
+	/** Tools that only make sense for one kind of document. */
+	only?: 'paint' | 'pixel';
+	/** A different hint for paint documents. */
+	paintHint?: string;
 }
+
+export const toolAvailable = (t: ToolInfo, kind: DocKind) =>
+	!t.only || (t.only === 'paint') === (kind === 'paint');
+
+export const toolsFor = (kind: DocKind) => TOOL_INFO.filter((t) => toolAvailable(t, kind));
 
 /** Toolbar order, labels and single-key shortcuts. */
 export const TOOL_INFO: ToolInfo[] = [
@@ -66,16 +80,42 @@ export const TOOL_INFO: ToolInfo[] = [
 		label: 'Pencil',
 		key: 'P',
 		group: 'paint',
-		hint: 'Hard pixel strokes. Shift-click draws a straight line.'
+		hint: 'Hard pixel strokes. Shift-click draws a straight line.',
+		only: 'pixel'
 	},
 	{
 		id: 'brush',
 		label: 'Brush',
 		key: 'B',
 		group: 'paint',
-		hint: 'Soft or hard brush with size, hardness, spacing and pressure.'
+		hint: 'Soft or hard brush with size, hardness, spacing and pressure.',
+		paintHint: 'Paint with smooth brushes. Pick a preset (pencil, ink, airbrush…) in the options bar.'
 	},
 	{ id: 'eraser', label: 'Eraser', key: 'E', group: 'paint', hint: 'Erase to transparency.' },
+	{
+		id: 'smudge',
+		label: 'Smudge',
+		key: 'F',
+		group: 'paint',
+		hint: 'Push and blend paint like a fingertip.',
+		only: 'paint'
+	},
+	{
+		id: 'blur',
+		label: 'Blur',
+		key: 'Y',
+		group: 'paint',
+		hint: 'Soften paint where you brush. Negative strength sharpens.',
+		only: 'paint'
+	},
+	{
+		id: 'gradient',
+		label: 'Gradient',
+		key: 'T',
+		group: 'paint',
+		hint: 'Drag to fill with a gradient. Shift snaps to 45°.',
+		only: 'paint'
+	},
 	{
 		id: 'fill',
 		label: 'Fill',

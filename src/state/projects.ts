@@ -1,5 +1,12 @@
-import { MoxelDocument } from '../core/document/document';
-import { MAX_CANVAS_SIZE, type SkinModel, type TextureType } from '../core/document/types';
+import { MoxelDocument, newLayer } from '../core/document/document';
+import {
+	MAX_CANVAS_SIZE,
+	MAX_PAINT_SIZE,
+	maxSize,
+	type DocKind,
+	type SkinModel,
+	type TextureType
+} from '../core/document/types';
 import { decodePNG, isPNG } from '../io/png';
 import {
 	decodeProjectsFile,
@@ -27,7 +34,8 @@ export type NewProjectSpec =
 			frames?: number;
 			fps?: number;
 	  }
-	| { type: 'canvas'; name: string; width: number; height: number; frames: number; fps: number };
+	| { type: 'canvas'; name: string; width: number; height: number; frames: number; fps: number }
+	| { type: 'paint'; name: string; width: number; height: number; background: 'white' | 'transparent' };
 
 export function createDocument(spec: NewProjectSpec): MoxelDocument {
 	if (spec.type === 'skin') {
@@ -43,8 +51,24 @@ export function createDocument(spec: NewProjectSpec): MoxelDocument {
 			doc.ensureCel(doc.root[0], doc.frames[0].id).set(starterSkin(spec.model));
 		return doc;
 	}
-	const w = clampSize(spec.width),
-		h = clampSize(spec.height);
+	const w = clampSize(spec.width, spec.type),
+		h = clampSize(spec.height, spec.type);
+	if (spec.type === 'paint') {
+		const doc = MoxelDocument.create({
+			name: spec.name,
+			kind: 'paint',
+			width: w,
+			height: h,
+			background: spec.background,
+			layerName: 'Background'
+		});
+		if (spec.background === 'white') doc.ensureCel(doc.root[0], doc.frames[0].id).fill(255);
+		// Paint on a layer above the background, so erasing reveals white rather than transparency.
+		const layer = newLayer('Layer 1');
+		doc.nodes.set(layer.id, layer);
+		doc.root.push(layer.id);
+		return doc;
+	}
 	if (spec.type === 'texture')
 		return MoxelDocument.create({
 			name: spec.name,
@@ -65,8 +89,8 @@ export function createDocument(spec: NewProjectSpec): MoxelDocument {
 	});
 }
 
-function clampSize(n: number) {
-	return Math.max(1, Math.min(MAX_CANVAS_SIZE, Math.round(n) || 1));
+function clampSize(n: number, kind: DocKind) {
+	return Math.max(1, Math.min(maxSize(kind), Math.round(n) || 1));
 }
 
 export async function saveNewDocument(doc: MoxelDocument): Promise<void> {
@@ -143,10 +167,24 @@ export async function documentFromImage(
 		if (sizeKind === 'legacy') app.toast('Converted a legacy 64×32 skin to the modern 64×64 layout.', 'info');
 		return doc;
 	}
-	if (img.width > MAX_CANVAS_SIZE || img.height > MAX_CANVAS_SIZE)
+	if (img.width > MAX_PAINT_SIZE || img.height > MAX_PAINT_SIZE)
 		throw new ImportError(
-			`This image is ${img.width}×${img.height}. Moxel supports canvases up to ${MAX_CANVAS_SIZE}×${MAX_CANVAS_SIZE}.`
+			`This image is ${img.width}×${img.height}. Moxel supports images up to ${MAX_PAINT_SIZE}×${MAX_PAINT_SIZE}.`
 		);
+	// Too big for pixel art: open it as a painting instead of refusing it.
+	if (img.width > MAX_CANVAS_SIZE || img.height > MAX_CANVAS_SIZE) {
+		const doc = MoxelDocument.create({
+			name,
+			kind: 'paint',
+			width: img.width,
+			height: img.height,
+			background: 'transparent',
+			layerName: 'Imported image'
+		});
+		doc.ensureCel(doc.root[0], doc.frames[0].id).set(img.data);
+		app.toast('Large image opened as a painting.', 'info');
+		return doc;
+	}
 	const square = img.width === img.height && (img.width & (img.width - 1)) === 0 && img.width <= 512;
 	const doc = MoxelDocument.create({
 		name,

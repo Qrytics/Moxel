@@ -177,35 +177,65 @@
 		[
 			'View',
 			() => [
-				{ label: 'Workspace', heading: true },
-				{ label: '2D canvas', checked: ed.workspace === '2d', action: () => (ed.workspace = '2d') },
-				{
-					label: 'Split (2D + 3D)',
-					checked: ed.workspace === 'split',
-					action: () => (ed.workspace = 'split')
-				},
-				{ label: '3D preview', checked: ed.workspace === '3d', action: () => (ed.workspace = '3d') },
-				{ separator: true, label: '' },
+				...(ed.paintMode
+					? []
+					: [
+							{ label: 'Workspace', heading: true },
+							{ label: '2D canvas', checked: ed.workspace === '2d', action: () => (ed.workspace = '2d') },
+							{
+								label: 'Split (2D + 3D)',
+								checked: ed.workspace === 'split',
+								action: () => (ed.workspace = 'split')
+							},
+							{ label: '3D preview', checked: ed.workspace === '3d', action: () => (ed.workspace = '3d') },
+							{ separator: true, label: '' }
+						]),
 				{ label: 'Zoom in', shortcut: '+', action: () => ed.zoomStep(1) },
 				{ label: 'Zoom out', shortcut: '−', action: () => ed.zoomStep(-1) },
 				{ label: 'Fit to screen', shortcut: sc('0', { mod: true }), action: () => ed.fit() },
 				{ label: 'Actual pixels', shortcut: sc('1', { mod: true }), action: () => ed.actualSize() },
+				...(ed.paintMode
+					? [
+							{ separator: true, label: '' },
+							{
+								label: 'Rotate view left',
+								shortcut: sc(',', { shift: true }),
+								action: () => ed.rotateView(-15)
+							},
+							{
+								label: 'Rotate view right',
+								shortcut: sc('.', { shift: true }),
+								action: () => ed.rotateView(15)
+							},
+							{ label: 'Reset rotation', disabled: !ed.view.rot, action: () => ed.rotateView(null) },
+							{
+								label: 'Mirror view',
+								shortcut: sc('M', { shift: true }),
+								checked: !!ed.view.flip,
+								action: () => ed.toggleFlipView()
+							}
+						]
+					: []),
 				{ separator: true, label: '' },
-				{
-					label: 'Pixel grid',
-					checked: ed.display.pixelGrid,
-					action: () => (ed.display.pixelGrid = !ed.display.pixelGrid)
-				},
-				{
-					label: '8px tile grid',
-					checked: ed.display.tileGrid === 8,
-					action: () => (ed.display.tileGrid = ed.display.tileGrid === 8 ? 0 : 8)
-				},
-				{
-					label: '16px tile grid',
-					checked: ed.display.tileGrid === 16,
-					action: () => (ed.display.tileGrid = ed.display.tileGrid === 16 ? 0 : 16)
-				},
+				...(ed.paintMode
+					? []
+					: [
+							{
+								label: 'Pixel grid',
+								checked: ed.display.pixelGrid,
+								action: () => (ed.display.pixelGrid = !ed.display.pixelGrid)
+							},
+							{
+								label: '8px tile grid',
+								checked: ed.display.tileGrid === 8,
+								action: () => (ed.display.tileGrid = ed.display.tileGrid === 8 ? 0 : 8)
+							},
+							{
+								label: '16px tile grid',
+								checked: ed.display.tileGrid === 16,
+								action: () => (ed.display.tileGrid = ed.display.tileGrid === 16 ? 0 : 16)
+							}
+						]),
 				{
 					label: 'Transparency checkerboard',
 					checked: ed.display.transparency === 'checker',

@@ -10,7 +10,9 @@ import { celKey, type DocMeta, type DocNode, type Frame, type GroupNode, type Re
 export type NodeProps = Partial<
 	Pick<DocNode, 'name' | 'visible' | 'locked' | 'opacity' | 'blend' | 'owner'> & { collapsed: boolean }
 >;
-export type MetaProps = Partial<Pick<DocMeta, 'name' | 'animation' | 'palette' | 'skin' | 'texture'>>;
+export type MetaProps = Partial<
+	Pick<DocMeta, 'name' | 'animation' | 'palette' | 'skin' | 'texture' | 'paint'>
+>;
 
 export type Op =
 	| {

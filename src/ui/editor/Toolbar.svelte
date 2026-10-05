@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { TOOL_INFO } from '../../core/tools/registry';
+	import { toolsFor } from '../../core/tools/registry';
 	import type { EditorState } from '../../state/editor.svelte';
 	import Icon from '../Icon.svelte';
 	import { toHex } from '../../color/color';
@@ -7,6 +7,7 @@
 	let { ed, horizontal = false }: { ed: EditorState; horizontal?: boolean } = $props();
 
 	const groups = ['select', 'paint', 'shape', 'color', 'view'] as const;
+	const tools = $derived(toolsFor(ed.doc.meta.kind));
 </script>
 
 <div
@@ -18,12 +19,12 @@
 >
 	{#each groups as g, gi (g)}
 		{#if gi > 0}<div class="sep" aria-hidden="true"></div>{/if}
-		{#each TOOL_INFO.filter((t) => t.group === g) as t (t.id)}
+		{#each tools.filter((t) => t.group === g) as t (t.id)}
 			<button
 				class="icon-btn tool"
 				aria-pressed={ed.tool === t.id}
 				aria-label="{t.label}{t.key ? ` (${t.key})` : ''}"
-				title="{t.label}{t.key ? ` (${t.key})` : ''} — {t.hint}"
+				title="{t.label}{t.key ? ` (${t.key})` : ''} — {(ed.paintMode && t.paintHint) || t.hint}"
 				onclick={() => ed.setTool(t.id)}
 			>
 				<Icon name={t.id} size={19} />

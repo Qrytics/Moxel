@@ -30,6 +30,7 @@ export interface CreateOptions {
 	fps?: number;
 	frames?: number;
 	layerName?: string;
+	background?: 'white' | 'transparent';
 }
 
 export interface DisplayRow {
@@ -68,6 +69,7 @@ export class MoxelDocument {
 			updatedAt: now,
 			skin: o.kind === 'skin' ? { model: o.model ?? 'classic' } : undefined,
 			texture: o.kind === 'texture' ? { type: o.textureType ?? 'other' } : undefined,
+			paint: o.kind === 'paint' ? { background: o.background ?? 'white' } : undefined,
 			animation: { ...DEFAULT_ANIMATION, fps: o.fps ?? DEFAULT_ANIMATION.fps },
 			palette: []
 		});
@@ -108,7 +110,7 @@ export class MoxelDocument {
 		for (const [k, v] of this.cels) cels.push([k, copy ? new Uint8ClampedArray(v) : v]);
 		return {
 			format: 'moxel',
-			version: 1,
+			version: snapshotVersion(this.meta.kind),
 			meta: { ...this.meta, animation: { ...this.meta.animation }, palette: [...this.meta.palette] },
 			nodes: [...this.nodes.values()].map(structuredCloneNode),
 			root: [...this.root],
@@ -292,6 +294,9 @@ export class MoxelDocument {
 		}
 	}
 }
+
+/** Paint documents are written as v2 so builds that predate paint mode refuse rather than misread them. */
+export const snapshotVersion = (kind: DocKind): 1 | 2 => (kind === 'paint' ? 2 : 1);
 
 export function newLayer(name: string, props: Partial<LayerNode> = {}): LayerNode {
 	return {

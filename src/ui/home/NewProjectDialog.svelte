@@ -1,18 +1,18 @@
 <script lang="ts">
 	import Dialog from '../Dialog.svelte';
 	import { TEXTURE_PRESETS } from '../../minecraft/templates';
-	import { MAX_CANVAS_SIZE, type SkinModel } from '../../core/document/types';
+	import { MAX_CANVAS_SIZE, MAX_PAINT_SIZE, type SkinModel } from '../../core/document/types';
 	import type { NewProjectSpec } from '../../state/projects';
 
-	type Tab = 'skin' | 'texture' | 'canvas' | 'animation';
+	type Tab = 'paint' | 'skin' | 'texture' | 'canvas' | 'animation';
 
 	let {
 		open = $bindable(false),
-		initialTab = 'skin',
+		initialTab = 'paint',
 		oncreate
 	}: { open?: boolean; initialTab?: Tab; oncreate: (spec: NewProjectSpec) => void } = $props();
 
-	let tab = $state<Tab>('skin');
+	let tab = $state<Tab>('paint');
 	let name = $state('');
 	let model = $state<SkinModel>('classic');
 	let template = $state<'starter' | 'blank'>('starter');
@@ -21,6 +21,9 @@
 	let height = $state(32);
 	let frames = $state(4);
 	let fps = $state(8);
+	let paintW = $state(1920);
+	let paintH = $state(1080);
+	let background = $state<'white' | 'transparent'>('white');
 
 	$effect(() => {
 		if (open) {
@@ -30,30 +33,32 @@
 	});
 
 	const placeholder = $derived(
-		tab === 'skin'
-			? model === 'slim'
-				? 'Slim skin'
-				: 'Classic skin'
-			: tab === 'texture'
-				? `${TEXTURE_PRESETS.find((p) => p.id === preset)?.label} texture`
-				: tab === 'animation'
-					? 'Animation'
-					: 'Untitled canvas'
+		tab === 'paint'
+			? 'Untitled painting'
+			: tab === 'skin'
+				? model === 'slim'
+					? 'Slim skin'
+					: 'Classic skin'
+				: tab === 'texture'
+					? `${TEXTURE_PRESETS.find((p) => p.id === preset)?.label} texture`
+					: tab === 'animation'
+						? 'Animation'
+						: 'Untitled canvas'
 	);
 
-	const sizeValid = $derived(
-		Number.isInteger(width) &&
-			Number.isInteger(height) &&
-			width >= 1 &&
-			height >= 1 &&
-			width <= MAX_CANVAS_SIZE &&
-			height <= MAX_CANVAS_SIZE
+	const validSize = (w: number, h: number, max: number) =>
+		Number.isInteger(w) && Number.isInteger(h) && w >= 1 && h >= 1 && w <= max && h <= max;
+	const sizeValid = $derived(validSize(width, height, MAX_CANVAS_SIZE));
+	const paintValid = $derived(validSize(paintW, paintH, MAX_PAINT_SIZE));
+	const canCreate = $derived(
+		tab === 'paint' ? paintValid : tab === 'canvas' || tab === 'animation' ? sizeValid : true
 	);
 
 	function create() {
 		const n = name.trim() || placeholder;
 		let spec: NewProjectSpec;
-		if (tab === 'skin') spec = { type: 'skin', name: n, model, template };
+		if (tab === 'paint') spec = { type: 'paint', name: n, width: paintW, height: paintH, background };
+		else if (tab === 'skin') spec = { type: 'skin', name: n, model, template };
 		else if (tab === 'texture') {
 			const p = TEXTURE_PRESETS.find((x) => x.id === preset)!;
 			spec = { type: 'texture', name: n, textureType: p.type, width: p.width, height: p.height };
@@ -72,11 +77,20 @@
 		[256, 256],
 		[320, 180]
 	];
+
+	const PAINT_PRESETS: [number, number, string][] = [
+		[1920, 1080, 'HD'],
+		[1080, 1080, 'Square'],
+		[1080, 1920, 'Portrait'],
+		[2560, 1440, 'QHD'],
+		[2048, 2048, 'Large square'],
+		[3000, 2000, '3:2 print']
+	];
 </script>
 
 <Dialog title="New project" bind:open width={560}>
 	<div class="tabs" role="tablist" aria-label="Project type">
-		{#each [['skin', 'Minecraft skin'], ['texture', 'Texture'], ['canvas', 'Pixel canvas'], ['animation', 'Animation']] as [id, label] (id)}
+		{#each [['paint', 'Paint'], ['skin', 'Minecraft skin'], ['texture', 'Texture'], ['canvas', 'Pixel canvas'], ['animation', 'Animation']] as [id, label] (id)}
 			<button role="tab" aria-selected={tab === id} class:on={tab === id} onclick={() => (tab = id as Tab)}
 				>{label}</button
 			>
@@ -86,7 +100,7 @@
 	<form
 		onsubmit={(e) => {
 			e.preventDefault();
-			if (tab === 'skin' || tab === 'texture' || sizeValid) create();
+			if (canCreate) create();
 		}}
 	>
 		<label class="field">
@@ -94,7 +108,65 @@
 			<input class="input" bind:value={name} {placeholder} maxlength="80" />
 		</label>
 
-		{#if tab === 'skin'}
+		{#if tab === 'paint'}
+			<fieldset>
+				<legend>Size</legend>
+				<div class="row">
+					<label class="field"
+						>Width <input
+							class="input num"
+							type="number"
+							min="1"
+							max={MAX_PAINT_SIZE}
+							bind:value={paintW}
+						/></label
+					>
+					<span class="x">×</span>
+					<label class="field"
+						>Height <input
+							class="input num"
+							type="number"
+							min="1"
+							max={MAX_PAINT_SIZE}
+							bind:value={paintH}
+						/></label
+					>
+				</div>
+				<div class="presets paint-presets">
+					{#each PAINT_PRESETS as [w, h, label] (`${w}x${h}`)}
+						<button
+							type="button"
+							class="preset"
+							class:on={paintW === w && paintH === h}
+							aria-pressed={paintW === w && paintH === h}
+							onclick={() => ((paintW = w), (paintH = h))}
+						>
+							<strong>{label}</strong><small>{w}×{h}</small>
+						</button>
+					{/each}
+				</div>
+				{#if !paintValid}<p class="err">
+						Width and height must be whole numbers from 1 to {MAX_PAINT_SIZE}.
+					</p>{/if}
+			</fieldset>
+			<fieldset>
+				<legend>Background</legend>
+				<div class="seg">
+					<button type="button" aria-pressed={background === 'white'} onclick={() => (background = 'white')}
+						>White</button
+					>
+					<button
+						type="button"
+						aria-pressed={background === 'transparent'}
+						onclick={() => (background = 'transparent')}>Transparent</button
+					>
+				</div>
+			</fieldset>
+			<p class="muted hint">
+				Smooth brushes with pen pressure, presets like pencil, ink and airbrush, plus smudge, blur and
+				gradients. For pixel art, choose Pixel canvas.
+			</p>
+		{:else if tab === 'skin'}
 			<fieldset>
 				<legend>Model</legend>
 				<div class="cards">
@@ -213,11 +285,7 @@
 
 	{#snippet footer()}
 		<button class="btn" onclick={() => (open = false)}>Cancel</button>
-		<button
-			class="btn primary"
-			disabled={(tab === 'canvas' || tab === 'animation') && !sizeValid}
-			onclick={create}>Create</button
-		>
+		<button class="btn primary" disabled={!canCreate} onclick={create}>Create</button>
 	{/snippet}
 </Dialog>
 

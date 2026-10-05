@@ -44,7 +44,10 @@ export type CommandId =
 	| 'escape'
 	| 'help'
 	| 'flipH'
-	| 'flipV';
+	| 'flipV'
+	| 'rotateLeft'
+	| 'rotateRight'
+	| 'flipView';
 
 interface Binding {
 	key: string;
@@ -93,7 +96,11 @@ const BINDINGS: Binding[] = [
 	{ key: '?', shift: true, cmd: 'help' },
 	{ key: 'f1', cmd: 'help' },
 	{ key: 'h', shift: true, cmd: 'flipH' },
-	{ key: 'v', shift: true, cmd: 'flipV' }
+	{ key: 'v', shift: true, cmd: 'flipV' },
+	// Paint documents: rotate the view with Shift+, / Shift+. (the < and > keys), mirror it with Shift+M.
+	{ key: '<', shift: true, cmd: 'rotateLeft' },
+	{ key: '>', shift: true, cmd: 'rotateRight' },
+	{ key: 'm', shift: true, cmd: 'flipView' }
 ];
 
 const TOOL_KEYS = new Map<string, ToolId>(
@@ -167,6 +174,8 @@ export const SHORTCUT_GROUPS: { title: string; items: [string, string][] }[] = [
 			[sc('1', { mod: true }), 'Actual pixels'],
 			['+ / −', 'Zoom in / out'],
 			['[ / ]', 'Brush size'],
+			[`${SHIFT}, / ${SHIFT}.`, 'Rotate view (paint)'],
+			[sc('M', { shift: true }), 'Mirror view (paint)'],
 			['X', 'Swap colours'],
 			['D', 'Default colours'],
 			[', / .', 'Previous / next frame'],

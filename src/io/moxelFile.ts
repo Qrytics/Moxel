@@ -43,7 +43,7 @@ export function encodeMoxel(doc: MoxelDocument): Uint8Array {
 		app: 'Moxel',
 		savedAt: new Date().toISOString(),
 		format: 'moxel',
-		version: 1,
+		version: snap.version,
 		meta: snap.meta,
 		nodes: snap.nodes,
 		root: snap.root,
@@ -71,7 +71,7 @@ export function decodeMoxel(bytes: Uint8Array, opts: { newId?: boolean } = {}): 
 		throw new ProjectFileError('The project manifest is corrupted and could not be read.');
 	}
 	if (m.format !== 'moxel') throw new ProjectFileError('This file is not a Moxel project.');
-	if (typeof m.version !== 'number' || m.version > 1)
+	if (typeof m.version !== 'number' || m.version > 2)
 		throw new ProjectFileError(
 			'This project was made with a newer version of Moxel. Reload the page to update.'
 		);
@@ -94,7 +94,7 @@ export function decodeMoxel(bytes: Uint8Array, opts: { newId?: boolean } = {}): 
 	}
 	const doc = MoxelDocument.fromSnapshot({
 		format: 'moxel',
-		version: 1,
+		version: m.version as 1 | 2,
 		meta: m.meta,
 		nodes: m.nodes ?? [],
 		root: m.root ?? [],

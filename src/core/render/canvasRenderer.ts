@@ -9,6 +9,9 @@ export interface ViewState {
 	/** Screen position (CSS px) of the document's top-left corner. */
 	ox: number;
 	oy: number;
+	/** Paint documents only: view rotation in degrees and a horizontal mirror, about the viewport centre. */
+	rot?: number;
+	flip?: boolean;
 }
 
 export interface DisplayOptions {
@@ -20,12 +23,22 @@ export interface DisplayOptions {
 	transparency: 'checker' | 'solid';
 	background: string;
 	onion: { before: HTMLCanvasElement[]; after: HTMLCanvasElement[]; opacity: number } | null;
-	brushCursor: { x: number; y: number; size: number; square: boolean } | null;
+	brushCursor: {
+		x: number;
+		y: number;
+		size: number;
+		square: boolean;
+		/** Paint brushes: drawn at the true pointer position (no pixel snapping), with tip shape. */
+		smooth?: boolean;
+		angle?: number;
+		roundness?: number;
+	} | null;
 	hoverPixel: { x: number; y: number } | null;
 	peers: { name: string; color: string; x: number; y: number }[];
 }
 
-export const MIN_ZOOM = 0.25;
+// Low enough to fit a 4096² painting in a small window.
+export const MIN_ZOOM = 0.02;
 export const MAX_ZOOM = 128;
 
 const PART_COLORS: Record<string, string> = {
@@ -96,6 +109,16 @@ export class CanvasRenderer {
 			dh = doc.height * z;
 		const ox = Math.round(view.ox),
 			oy = Math.round(view.oy);
+		const paint = doc.meta.kind === 'paint';
+		const rotated = !!view.rot || !!view.flip;
+		// Everything below is drawn in "unrotated screen space"; rotation and flip wrap all of it.
+		g.save();
+		if (rotated) {
+			g.translate(W / 2, H / 2);
+			g.rotate(((view.rot ?? 0) * Math.PI) / 180);
+			if (view.flip) g.scale(-1, 1);
+			g.translate(-W / 2, -H / 2);
+		}
 
 		// Drop shadow + background.
 		g.fillStyle = 'rgba(0,0,0,0.35)';
@@ -111,7 +134,10 @@ export class CanvasRenderer {
 			g.fillRect(ox, oy, dw, dh);
 		}
 
-		g.imageSmoothingEnabled = false;
+		// Pixel art stays nearest-neighbour. Paintings are smoothed when zoomed out or rotated, and
+		// still show crisp pixels when zoomed right in, which is what painters expect.
+		g.imageSmoothingEnabled = paint && (z < 2 || rotated);
+		g.imageSmoothingQuality = 'high';
 		if (o.onion) {
 			const tint = (list: HTMLCanvasElement[], base: number) =>
 				list.forEach((c, i) => {
@@ -123,6 +149,7 @@ export class CanvasRenderer {
 			g.globalAlpha = 1;
 		}
 		g.drawImage(cache.canvas, ox, oy, dw, dh);
+		g.imageSmoothingEnabled = false;
 
 		g.save();
 		g.beginPath();
@@ -141,7 +168,7 @@ export class CanvasRenderer {
 		}
 
 		// Pixel grid: only when pixels are big enough for lines not to become a grey wash.
-		if (o.pixelGrid && z >= 6) {
+		if (o.pixelGrid && z >= 6 && !paint) {
 			g.strokeStyle = 'rgba(255,255,255,0.08)';
 			g.lineWidth = 1;
 			g.beginPath();
@@ -274,7 +301,38 @@ export class CanvasRenderer {
 			g.stroke();
 		}
 
-		if (o.brushCursor && o.brushCursor.size * z >= 4) {
+		if (o.brushCursor?.smooth) {
+			const b = o.brushCursor;
+			const cx = ox + b.x * z,
+				cy = oy + b.y * z;
+			const r = (b.size / 2) * z;
+			g.lineWidth = 1;
+			g.beginPath();
+			if (r >= 3) {
+				g.ellipse(
+					cx,
+					cy,
+					r,
+					Math.max(0.5, r * (b.roundness ?? 1)),
+					((b.angle ?? 0) * Math.PI) / 180,
+					0,
+					Math.PI * 2
+				);
+			} else {
+				// Too small to see as a circle: a crosshair instead.
+				g.moveTo(cx - 6, cy);
+				g.lineTo(cx + 6, cy);
+				g.moveTo(cx, cy - 6);
+				g.lineTo(cx, cy + 6);
+			}
+			// Two-tone so the outline reads on both light and dark paint.
+			g.strokeStyle = 'rgba(0,0,0,0.6)';
+			g.lineWidth = 3;
+			g.stroke();
+			g.strokeStyle = 'rgba(255,255,255,0.9)';
+			g.lineWidth = 1;
+			g.stroke();
+		} else if (o.brushCursor && o.brushCursor.size * z >= 4) {
 			const b = o.brushCursor;
 			const odd = Math.round(b.size) % 2 === 1;
 			const cx = odd ? Math.floor(b.x) + 0.5 : Math.round(b.x);
@@ -304,6 +362,7 @@ export class CanvasRenderer {
 			g.textBaseline = 'middle';
 			g.fillText(p.name, px + 15, py + 19);
 		}
+		g.restore();
 	}
 }
 
@@ -312,19 +371,47 @@ export function fitView(
 	docH: number,
 	cssW: number,
 	cssH: number,
-	margin = Math.min(48, Math.min(cssW, cssH) * 0.04)
+	margin = Math.min(48, Math.min(cssW, cssH) * 0.04),
+	integer = true
 ): ViewState {
 	const zoom = Math.max(
 		MIN_ZOOM,
 		Math.min(MAX_ZOOM, Math.min((cssW - margin * 2) / docW, (cssH - margin * 2) / docH))
 	);
-	// Prefer integer zoom above 1 so pixels stay square and crisp.
-	const z = zoom >= 1 ? Math.max(1, Math.floor(zoom)) : zoom;
+	// Prefer integer zoom above 1 so pixels stay square and crisp (pixel art only).
+	const z = integer && zoom >= 1 ? Math.max(1, Math.floor(zoom)) : zoom;
 	return { zoom: z, ox: (cssW - docW * z) / 2, oy: (cssH - docH * z) / 2 };
 }
 
 export function zoomViewAt(v: ViewState, factor: number, sx: number, sy: number): ViewState {
 	const zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, v.zoom * factor));
 	const k = zoom / v.zoom;
-	return { zoom, ox: sx - (sx - v.ox) * k, oy: sy - (sy - v.oy) * k };
+	return { ...v, zoom, ox: sx - (sx - v.ox) * k, oy: sy - (sy - v.oy) * k };
+}
+
+/**
+ * Undo the view's rotation/flip: map a screen point into the unrotated screen space that ox/oy/zoom
+ * describe. Rotation is about the viewport centre, so zooming about a point keeps it fixed on screen.
+ */
+export function unrotate(v: ViewState, sx: number, sy: number, cssW: number, cssH: number): [number, number] {
+	if (!v.rot && !v.flip) return [sx, sy];
+	const cx = cssW / 2,
+		cy = cssH / 2;
+	const a = (-(v.rot ?? 0) * Math.PI) / 180;
+	const dx = sx - cx,
+		dy = sy - cy;
+	let ux = dx * Math.cos(a) - dy * Math.sin(a);
+	const uy = dx * Math.sin(a) + dy * Math.cos(a);
+	if (v.flip) ux = -ux;
+	return [cx + ux, cy + uy];
+}
+
+/** Same, for a screen-space movement (pan deltas). */
+export function unrotateDelta(v: ViewState, dx: number, dy: number): [number, number] {
+	if (!v.rot && !v.flip) return [dx, dy];
+	const a = (-(v.rot ?? 0) * Math.PI) / 180;
+	let ux = dx * Math.cos(a) - dy * Math.sin(a);
+	const uy = dx * Math.sin(a) + dy * Math.cos(a);
+	if (v.flip) ux = -ux;
+	return [ux, uy];
 }

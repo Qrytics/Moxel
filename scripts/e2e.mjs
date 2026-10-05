@@ -7,7 +7,8 @@
  *
  * Starts `vite preview` and the signaling relay itself, then walks the "definition of done":
  * create a skin → draw → layers → undo/redo → 3D preview → autosave → reload persists →
- * export a valid PNG → .moxel round trip → offline reload → live session between two browsers.
+ * export a valid PNG → .moxel round trip → paint mode (brush, smudge, undo, reload, PNG/JPEG export)
+ * → offline reload → live session between two browsers.
  */
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -85,6 +86,25 @@ async function canvasPoint(page, docX, docY) {
 	const ox = (box.width - w) / 2,
 		oy = (box.height - h) / 2;
 	return { x: box.x + ox + (docX + 0.5) * zoom, y: box.y + oy + (docY + 0.5) * zoom };
+}
+
+/** Paint documents fit at a fractional zoom; recompute the view the same way the editor does. */
+async function paintPoint(page, docX, docY, docW = 1920, docH = 1080) {
+	const box = await page.locator('canvas[aria-label^="Drawing canvas"]').boundingBox();
+	const margin = Math.min(48, Math.min(box.width, box.height) * 0.04);
+	const zoom = Math.min((box.width - margin * 2) / docW, (box.height - margin * 2) / docH);
+	const ox = (box.width - docW * zoom) / 2,
+		oy = (box.height - docH * zoom) / 2;
+	return { x: box.x + ox + docX * zoom, y: box.y + oy + docY * zoom };
+}
+
+async function stroke(page, from, to, steps = 20) {
+	const a = await paintPoint(page, ...from),
+		b = await paintPoint(page, ...to);
+	await page.mouse.move(a.x, a.y);
+	await page.mouse.down();
+	await page.mouse.move(b.x, b.y, { steps });
+	await page.mouse.up();
 }
 
 const preview = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], { stdio: 'pipe' });
@@ -235,6 +255,93 @@ try {
 	await p2.waitForSelector('canvas[aria-label^="Drawing canvas"]');
 	check((await p2.locator('.layers li.row').count()) === 2, 'imported project keeps its layers');
 	await other.close();
+
+	console.log('Paint mode');
+	const paintCtx = await browser.newContext({
+		viewport: { width: 1440, height: 900 },
+		acceptDownloads: true
+	});
+	const pp = await paintCtx.newPage();
+	pp.on('pageerror', (e) => errors.push('paint: ' + e.message));
+	await pp.goto(BASE);
+	await pp
+		.getByRole('button', { name: /New project|Start painting/ })
+		.first()
+		.click();
+	check(
+		(await pp.getByRole('tab', { name: 'Paint' }).getAttribute('aria-selected')) === 'true',
+		'new-project dialog opens on Paint'
+	);
+	await pp.locator('dialog input').first().fill('E2E Painting');
+	await pp.getByRole('button', { name: 'Create', exact: true }).click();
+	await pp.waitForSelector('canvas[aria-label^="Drawing canvas"]');
+	check(await pp.getByRole('button', { name: /^Smudge/ }).isVisible(), 'paint tools in the toolbar');
+	check(
+		(await pp.getByRole('button', { name: /^Pencil/ }).count()) === 0,
+		'pixel pencil hidden in paint mode'
+	);
+	await pp.locator('#color-hex').fill('#ff0000');
+	await pp.locator('#color-hex').press('Enter');
+	await stroke(pp, [400, 500], [1400, 500]);
+	await pp.waitForSelector('text=Saved locally ✓', { timeout: 8000 });
+	const painted = await storedPixel(pp, 900, 500);
+	check(painted?.[0] === 255 && painted?.[1] < 60, 'smooth brush stroke autosaved');
+
+	await pp.keyboard.press('f');
+	await stroke(pp, [900, 490], [900, 640], 30);
+	await pp.waitForTimeout(1300);
+	const smudged = await storedPixel(pp, 900, 540);
+	check(smudged?.[1] < 250, 'smudge dragged paint off the stroke');
+	await pp.keyboard.press('ControlOrMeta+z');
+	await pp.waitForTimeout(1300);
+	check((await storedPixel(pp, 900, 540))?.[1] === 255, 'undo removed the smudge');
+	await pp.keyboard.press('ControlOrMeta+Shift+z');
+	await pp.waitForTimeout(1300);
+
+	await pp.reload();
+	await pp.waitForSelector('canvas[aria-label^="Drawing canvas"]');
+	check((await storedPixel(pp, 900, 500))?.[0] === 255, 'painting restored after reload');
+	check(await pp.getByRole('button', { name: /^Smudge/ }).isVisible(), 'still a paint project after reload');
+
+	// Paint on a rotated view: the dab must land under the pointer, not where it would be unrotated.
+	await pp.keyboard.press('b');
+	await pp.locator('canvas[aria-label^="Drawing canvas"]').focus();
+	await pp.keyboard.press('Shift+Period');
+	await pp.keyboard.press('Shift+Period');
+	const cbox = await pp.locator('canvas[aria-label^="Drawing canvas"]').boundingBox();
+	const u = await paintPoint(pp, 1500, 850);
+	const cx = cbox.x + cbox.width / 2,
+		cy = cbox.y + cbox.height / 2;
+	const ang = (30 * Math.PI) / 180;
+	const rx = cx + (u.x - cx) * Math.cos(ang) - (u.y - cy) * Math.sin(ang),
+		ry = cy + (u.x - cx) * Math.sin(ang) + (u.y - cy) * Math.cos(ang);
+	await pp.mouse.click(rx, ry);
+	await pp.waitForTimeout(1300);
+	check((await storedPixel(pp, 1500, 850))?.[1] < 60, 'brush lands under the pointer on a rotated view');
+	await pp.keyboard.press('ControlOrMeta+0');
+
+	await pp
+		.getByRole('button', { name: /Export/ })
+		.first()
+		.click();
+	const [paintPng] = await Promise.all([
+		pp.waitForEvent('download'),
+		pp.locator('dialog').getByRole('button', { name: 'Export', exact: true }).click()
+	]);
+	const pbuf = readFileSync(await paintPng.path());
+	check(pbuf.readUInt32BE(16) === 1920 && pbuf.readUInt32BE(20) === 1080, 'painting exports at 1920×1080');
+	await pp
+		.getByRole('button', { name: /Export/ })
+		.first()
+		.click();
+	await pp.getByRole('radio', { name: /JPEG/ }).click();
+	const [jpg] = await Promise.all([
+		pp.waitForEvent('download'),
+		pp.locator('dialog').getByRole('button', { name: 'Export', exact: true }).click()
+	]);
+	const jbuf = readFileSync(await jpg.path());
+	check(jpg.suggestedFilename().endsWith('.jpg') && jbuf[0] === 0xff && jbuf[1] === 0xd8, 'exported a JPEG');
+	await paintCtx.close();
 
 	console.log('Offline');
 	await page.waitForTimeout(500);

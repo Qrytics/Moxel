@@ -280,8 +280,23 @@
 				return e.zoomStep(1);
 			case 'zoomOut':
 				return e.zoomStep(-1);
+			case 'rotateLeft':
+				return e.rotateView(-15);
+			case 'rotateRight':
+				return e.rotateView(15);
+			case 'flipView':
+				return e.toggleFlipView();
 			case 'brushSmaller':
 			case 'brushBigger': {
+				const t = e.tool;
+				if (e.paintMode && (t === 'brush' || t === 'eraser' || t === 'smudge' || t === 'blur')) {
+					// Big paint brushes step proportionally; ±1px would take forever at 300px.
+					const pb = e.settings.paint[t];
+					const k = cmd === 'brushBigger' ? 1.15 : 1 / 1.15;
+					pb.size = Math.max(1, Math.min(500, Math.round(pb.size * k + (k > 1 ? 0.5 : -0.5))));
+					e.flashNotice(`Size ${pb.size}px`);
+					return;
+				}
 				const b =
 					e.tool === 'brush'
 						? e.settings.brush
@@ -443,7 +458,7 @@
 					disabled={!(ed.historyVersion >= 0 && ed.history.canRedo)}
 					onclick={() => ed!.redo()}><Icon name="redo" /></button
 				>
-				{#if !narrow}
+				{#if !narrow && !ed.paintMode}
 					<div class="seg" role="group" aria-label="Workspace">
 						<button
 							aria-pressed={ed.workspace === '2d'}
@@ -476,7 +491,7 @@
 				<button class="btn primary" onclick={() => (exportOpen = true)}
 					><Icon name="download" size={16} />{narrow ? '' : ' Export'}</button
 				>
-				{#if narrow}
+				{#if narrow && !ed.paintMode}
 					<button
 						class="icon-btn"
 						aria-label="Toggle 3D preview"

@@ -1,10 +1,10 @@
 # Moxel
 
-**Pixel art, frame animation and Minecraft skin & texture editor — in the browser, local-first.**
+**Painting, pixel art, frame animation and Minecraft skin & texture editor — in the browser, local-first.**
 
-Moxel is a professional-style illustration tool built around pixels: layers and groups, selections,
-brushes with pressure, onion-skinned animation, a live 3D preview of Minecraft skins, and real-time
-drawing with friends. Projects are saved automatically in your browser's IndexedDB — nothing is
+Moxel is a professional-style illustration tool with two modes: **Paint**, with smooth pressure-sensitive
+brushes on canvases up to 4096², and **pixel art**, with layers and groups, selections, onion-skinned
+animation, a live 3D preview of Minecraft skins, and real-time drawing with friends in both. Projects are saved automatically in your browser's IndexedDB — nothing is
 uploaded, and no account is needed.
 
 Live at **[mario-belmonte.com/Moxel](https://www.mario-belmonte.com/Moxel/)**.
@@ -20,7 +20,24 @@ Live at **[mario-belmonte.com/Moxel](https://www.mario-belmonte.com/Moxel/)**.
 - Clear fallback if browser storage is unavailable (memory-only, with a prompt to export)
 - Installable PWA: once loaded, Moxel opens, edits, saves and exports offline
 
-**Drawing**
+**Paint mode** (the default for new projects; a project's mode is fixed when it's created)
+
+- Smooth, anti-aliased brushes with size (1–500px), opacity, **flow** (build-up), hardness, spacing,
+  tip angle/roundness, paper **grain**, scatter and size/opacity jitter
+- Pen pressure → size, opacity and/or flow, with soft/linear/firm curves; mouse strokes can taper
+- Line **smoothing** (stabilizer) that still ends exactly where the pen lifts
+- Presets: soft/hard round, ink pen, pencil, airbrush, marker, chalk, calligraphy, wash, erasers,
+  finger smudge, long smear, blur and sharpen — with live previews; save your own (shared by every
+  painting)
+- **Smudge**, **blur/sharpen** and **gradient** (linear/radial, to background or transparent, dithered)
+  tools; anti-aliased line/rectangle/ellipse; all of them respect soft selections and symmetry
+- Smooth zoom, **view rotation** (Shift+, / Shift+.) and **mirror view** (Shift+M) that never touch
+  the pixels
+- Canvases up to 4096×4096 with presets (HD, square, portrait, QHD, print), white or transparent
+  background; large images import as paintings
+- Export PNG, **JPEG** or **WebP** (quality and size options)
+
+**Drawing (pixel art)**
 
 - Tools: pencil (pixel-perfect), brush (size, hardness, spacing, round/square/custom tip, pen
   pressure → size/opacity), eraser, fill (tolerance, contiguous/global, sample all layers), line,
@@ -99,7 +116,8 @@ src/
     document/   Document model (layers tree, frames, cels), Ops + applyOp, user-level commands
     history/    Op-based undo/redo: every op returns its inverse; one gesture = one entry
     selection/  Coverage-mask selections; rect/ellipse/lasso/wand all produce masks
-    tools/      Tool interface + stroke engine (coverage max-accumulation, pixel-perfect, symmetry)
+    tools/      Tool interface; pixel stroke engine (max-accumulation, pixel-perfect, symmetry) and the
+                tiled paint engine (paintEngine.ts: flow, smudge, blur, stabilizer, presets)
     render/     Compositor (blend modes, isolated groups), dirty-rect composite cache, 2D renderer
   minecraft/    UV table (classic/slim), mirror map, legacy upgrade, templates, validation
   preview3d/    Three.js scene built from the UV table; picking for paint-on-model
@@ -121,6 +139,10 @@ Key decisions:
   watches a few version counters, and the composite cache re-composites only dirty rects once per frame.
 - **Stroke opacity is per stroke, not per dab** — coverage accumulates with `max()`, so crossing your own
   stroke doesn't darken it, shape previews reset cheaply, and the whole stroke commits as one patch.
+- **Paint strokes are tiled.** The paint engine backs up 64×64 tiles lazily on first touch and keeps
+  float coverage, so soft, low-flow strokes build up without 8-bit banding, and a stroke commits one
+  patch per changed tile — undo memory and live-session traffic follow the painted area, not the
+  stroke's bounding box, which is what makes 4096² canvases practical.
 - **Local-first persistence**: snapshots go straight into IndexedDB via structured clone (no
   serialisation step); `.moxel` files are a zip of `project.json` + one PNG per cel, inspectable with
   any unzip tool.
@@ -130,12 +152,13 @@ Key decisions:
 A zip archive:
 
 ```
-project.json             # { app: "Moxel", format: "moxel", version: 1, meta, nodes, root, frames, editor, cels[] }
+project.json             # { app: "Moxel", format: "moxel", version: 1 | 2, meta, nodes, root, frames, editor, cels[] }
 cels/<layer>/<frame>.png # 8-bit RGBA PNG per non-empty cel, at canvas size
 ```
 
-`meta` holds name, kind (`skin` | `texture` | `canvas`), size, skin model, texture type, animation
-settings and the project palette; `nodes`/`root` describe the layer tree (children bottom-first);
+`meta` holds name, kind (`skin` | `texture` | `canvas` | `paint`), size, skin model, texture type,
+paint background, animation settings and the project palette; paint projects are written as version 2
+so builds that predate Paint mode refuse them instead of misreading them; `nodes`/`root` describe the layer tree (children bottom-first);
 `editor` restores the active layer/frame, tool and brush settings. `.moxelbackup` bundles several
 `.moxel` files plus a `backup.json` index.
 

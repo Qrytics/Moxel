@@ -142,3 +142,41 @@ export function downloadBytes(bytes: Uint8Array, filename: string, type: string)
 	a.remove();
 	setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
+
+/**
+ * JPEG / WebP through the browser's own encoder (main thread; these formats have no pure-JS
+ * encoder here). JPEG has no alpha, so transparency is flattened onto white. `scale` may be
+ * fractional for paintings and is resampled smoothly.
+ */
+export async function exportBrowserImage(
+	doc: MoxelDocument,
+	frameId: string,
+	type: 'image/jpeg' | 'image/webp',
+	quality: number,
+	scale = 1
+): Promise<Uint8Array> {
+	const src = document.createElement('canvas');
+	src.width = doc.width;
+	src.height = doc.height;
+	src
+		.getContext('2d')!
+		.putImageData(
+			new ImageData(new Uint8ClampedArray(compositeFrame(doc, frameId)), doc.width, doc.height),
+			0,
+			0
+		);
+	const out = document.createElement('canvas');
+	out.width = Math.max(1, Math.round(doc.width * scale));
+	out.height = Math.max(1, Math.round(doc.height * scale));
+	const g = out.getContext('2d')!;
+	if (type === 'image/jpeg') {
+		g.fillStyle = '#ffffff';
+		g.fillRect(0, 0, out.width, out.height);
+	}
+	g.imageSmoothingEnabled = true;
+	g.imageSmoothingQuality = 'high';
+	g.drawImage(src, 0, 0, out.width, out.height);
+	const blob = await new Promise<Blob | null>((r) => out.toBlob(r, type, quality));
+	if (!blob) throw new Error(`This browser can't encode ${type}`);
+	return new Uint8Array(await blob.arrayBuffer());
+}

@@ -1,5 +1,6 @@
 import { openProjectStore, type ProjectMeta, type ProjectStore } from '../persistence/store';
 import { BUILTIN_PALETTES, type Palette } from '../color/color';
+import type { BrushPreset } from '../core/tools/brushPresets';
 
 export type Route =
 	| { name: 'home' }
@@ -20,6 +21,8 @@ export interface UserSettings {
 	lastOpenProject: string | null;
 	displayName: string;
 	cursorColor: string;
+	/** Brushes saved from paint projects; shared by every project. */
+	paintPresets: BrushPreset[];
 }
 
 const PEER_COLORS = ['#ff8f6b', '#7ee0a1', '#ffd36b', '#b494ff', '#6bd3ff', '#ff7ab8'];
@@ -51,7 +54,8 @@ class AppState {
 		recentColors: [],
 		lastOpenProject: null,
 		displayName: '',
-		cursorColor: PEER_COLORS[Math.floor(Math.random() * PEER_COLORS.length)]
+		cursorColor: PEER_COLORS[Math.floor(Math.random() * PEER_COLORS.length)],
+		paintPresets: []
 	});
 	private toastId = 0;
 

@@ -44,6 +44,19 @@
 		if (!ed.hover || spaceHeld) return null;
 		const t = ed.tool;
 		const s = ed.settings;
+		if (ed.paintMode) {
+			if (t !== 'brush' && t !== 'eraser' && t !== 'smudge' && t !== 'blur') return null;
+			const b = s.paint[t];
+			return {
+				x: ed.hover.x,
+				y: ed.hover.y,
+				size: b.size,
+				square: false,
+				smooth: true,
+				angle: b.angle,
+				roundness: b.roundness
+			};
+		}
 		const b =
 			t === 'brush'
 				? s.brush
@@ -68,7 +81,7 @@
 			onion: onionFrames(),
 			brushCursor: brushCursor(),
 			hoverPixel:
-				ed.hover && ['pencil', 'eraser', 'fill', 'eyedropper', 'wand'].includes(ed.tool)
+				ed.hover && !ed.paintMode && ['pencil', 'eraser', 'fill', 'eyedropper', 'wand'].includes(ed.tool)
 					? { x: Math.floor(ed.hover.x), y: Math.floor(ed.hover.y) }
 					: null,
 			peers: ed.peers
@@ -150,9 +163,10 @@
 		const r = canvas!.getBoundingClientRect();
 		const sx = e.clientX - r.left,
 			sy = e.clientY - r.top;
+		const { x, y } = ed.screenToDoc(sx, sy);
 		return {
-			x: (sx - ed.view.ox) / ed.view.zoom,
-			y: (sy - ed.view.oy) / ed.view.zoom,
+			x,
+			y,
 			sx,
 			sy,
 			pressure: e.pressure,

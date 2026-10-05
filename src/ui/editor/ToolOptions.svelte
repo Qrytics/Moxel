@@ -3,6 +3,7 @@
 	import type { BrushSettings, SymmetryMode } from '../../core/tools/types';
 	import type { EditorState } from '../../state/editor.svelte';
 	import Icon from '../Icon.svelte';
+	import PaintToolOptions from './PaintToolOptions.svelte';
 
 	let { ed }: { ed: EditorState } = $props();
 
@@ -31,14 +32,49 @@
 		return ed.selection.active;
 	});
 	const paints = $derived(
-		['brush', 'pencil', 'eraser', 'clone', 'line', 'rect', 'ellipse'].includes(ed.tool)
+		['brush', 'pencil', 'eraser', 'clone', 'line', 'rect', 'ellipse', 'smudge', 'blur'].includes(ed.tool)
+	);
+	const paintTool = $derived(
+		ed.paintMode &&
+			(ed.tool === 'brush' || ed.tool === 'eraser' || ed.tool === 'smudge' || ed.tool === 'blur')
+			? ed.tool
+			: null
 	);
 </script>
 
 <div class="opts" role="group" aria-label="{info.label} options">
 	<span class="name"><Icon name={ed.tool} size={16} /> {info.label}</span>
 
-	{#if brush}
+	{#if paintTool}
+		<PaintToolOptions {ed} tool={paintTool} />
+	{:else if ed.tool === 'gradient'}
+		<label class="o">
+			Shape
+			<select class="input" bind:value={ed.settings.paint.gradient.shape} aria-label="Gradient shape">
+				<option value="linear">Linear</option>
+				<option value="radial">Radial</option>
+			</select>
+		</label>
+		<label class="o">
+			Opacity
+			<input
+				type="range"
+				min="0.01"
+				max="1"
+				step="0.01"
+				bind:value={ed.settings.paint.gradient.opacity}
+				aria-label="Opacity"
+			/>
+			<span class="v">{Math.round(ed.settings.paint.gradient.opacity * 100)}%</span>
+		</label>
+		<label
+			class="check"
+			title="Fade from the foreground colour to transparent instead of to the background colour"
+		>
+			<input type="checkbox" bind:checked={ed.settings.paint.gradient.toTransparent} /> To transparent
+		</label>
+		<span class="hint">{info.hint}</span>
+	{:else if brush}
 		<label class="o" title="Brush size ([ and ])">
 			Size
 			<input
@@ -110,7 +146,7 @@
 				class="input num"
 				type="number"
 				min="1"
-				max="32"
+				max={ed.paintMode ? 200 : 32}
 				bind:value={ed.settings.shape.size}
 				aria-label="Line width"
 			/>

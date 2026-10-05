@@ -3,9 +3,9 @@ import type { ChangeEvent, MoxelDocument } from '../core/document/document';
 import { applyOp, type Op } from '../core/document/ops';
 import { History, type CommitKind } from '../core/history/history';
 import { CompositeCache } from '../core/render/compositeCache';
-import { fitView, zoomViewAt, type ViewState } from '../core/render/canvasRenderer';
+import { fitView, unrotate, unrotateDelta, zoomViewAt, type ViewState } from '../core/render/canvasRenderer';
 import { Selection } from '../core/selection/selection';
-import { TOOLS } from '../core/tools/registry';
+import { TOOL_INFO, TOOLS, toolAvailable } from '../core/tools/registry';
 import {
 	copySelection,
 	cutSelection,
@@ -227,17 +227,30 @@ export class EditorState {
 				fill: { ...d.fill, ...s.fill },
 				wand: { ...d.wand, ...s.wand },
 				shape: { ...d.shape, ...s.shape },
-				eyedropper: { ...d.eyedropper, ...s.eyedropper }
+				eyedropper: { ...d.eyedropper, ...s.eyedropper },
+				paint: {
+					...d.paint,
+					...s.paint,
+					brush: { ...d.paint.brush, ...s.paint?.brush },
+					eraser: { ...d.paint.eraser, ...s.paint?.eraser },
+					smudge: { ...d.paint.smudge, ...s.paint?.smudge },
+					blur: { ...d.paint.blur, ...s.paint?.blur },
+					gradient: { ...d.paint.gradient, ...s.paint?.gradient },
+					preset: { ...d.paint.preset, ...s.paint?.preset }
+				}
 			};
 		} else if (this.doc.meta.kind === 'skin') this.settings.symmetry = 'off';
 		if (Array.isArray(e.fg) && e.fg.length === 4) this.fg = e.fg as RGBA;
 		if (Array.isArray(e.bg) && e.bg.length === 4) this.bg = e.bg as RGBA;
 		if (e.workspace === '2d' || e.workspace === '3d' || e.workspace === 'split') this.workspace = e.workspace;
 		else this.workspace = this.doc.meta.kind === 'skin' && window.innerWidth >= 1100 ? 'split' : '2d';
+		// The 3D preview wraps the image onto a skin or block; that means nothing for a painting.
+		if (this.paintMode) this.workspace = '2d';
 		if (e.display && typeof e.display === 'object')
 			this.display = { ...this.display, ...(e.display as DisplaySettings) };
 		if (this.doc.meta.kind !== 'skin') this.display.guides = false;
-		if (this.doc.width > 128 || this.doc.height > 128) this.display.pixelGrid = false;
+		if (this.doc.width > 128 || this.doc.height > 128 || this.paintMode) this.display.pixelGrid = false;
+		if (this.paintMode && !(typeof e.tool === 'string' && e.tool in TOOLS)) this.tool = 'brush';
 	}
 
 	dispose() {
@@ -287,6 +300,12 @@ export class EditorState {
 	// ── tools & colours ─────────────────────────────────────────────────────
 
 	setTool(id: ToolId) {
+		const info = TOOL_INFO.find((t) => t.id === id);
+		if (info && !toolAvailable(info, this.doc.meta.kind)) {
+			// The pencil's key still means "draw" in a painting; paint-only tools explain themselves.
+			if (id === 'pencil') id = 'brush';
+			else return this.flashNotice(`${info.label} is available in Paint projects.`);
+		}
 		if (id === this.tool) return;
 		TOOLS[this.tool].cancel?.(this.ctx);
 		this.tool = id;
@@ -401,8 +420,40 @@ export class EditorState {
 		if (first) this.fit();
 	}
 
+	get paintMode() {
+		return this.doc.meta.kind === 'paint';
+	}
+
 	fit() {
-		this.view = fitView(this.doc.width, this.doc.height, this.viewport.w, this.viewport.h);
+		this.view = fitView(
+			this.doc.width,
+			this.doc.height,
+			this.viewport.w,
+			this.viewport.h,
+			undefined,
+			!this.paintMode
+		);
+	}
+
+	/** Screen (CSS px, canvas-relative) → document coordinates, through zoom, pan and rotation. */
+	screenToDoc(sx: number, sy: number): { x: number; y: number } {
+		const [ux, uy] = unrotate(this.view, sx, sy, this.viewport.w, this.viewport.h);
+		return { x: (ux - this.view.ox) / this.view.zoom, y: (uy - this.view.oy) / this.view.zoom };
+	}
+
+	/** Paint documents: rotate the view (not the image) by `deg`, or back to upright with `null`. */
+	rotateView(deg: number | null) {
+		if (!this.paintMode) return;
+		const rot = deg === null ? 0 : (((((this.view.rot ?? 0) + deg) % 360) + 540) % 360) - 180;
+		this.view = { ...this.view, rot: Math.abs(rot) < 0.01 ? 0 : rot };
+		this.flashNotice(rot ? `Rotated ${Math.round(rot)}°` : 'Rotation reset');
+	}
+
+	/** Paint documents: mirror the view to check proportions. Doesn't touch the pixels. */
+	toggleFlipView() {
+		if (!this.paintMode) return;
+		this.view = { ...this.view, flip: !this.view.flip };
+		this.flashNotice(this.view.flip ? 'View mirrored' : 'View normal');
 	}
 
 	actualSize() {
@@ -414,15 +465,18 @@ export class EditorState {
 	}
 
 	pan(dx: number, dy: number) {
-		this.view = { ...this.view, ox: this.view.ox + dx, oy: this.view.oy + dy };
+		const [ux, uy] = unrotateDelta(this.view, dx, dy);
+		this.view = { ...this.view, ox: this.view.ox + ux, oy: this.view.oy + uy };
 	}
 
 	zoomAt(factor: number, sx = this.viewport.w / 2, sy = this.viewport.h / 2) {
-		this.view = zoomViewAt(this.view, factor, sx, sy);
+		const [ux, uy] = unrotate(this.view, sx, sy, this.viewport.w, this.viewport.h);
+		this.view = zoomViewAt(this.view, factor, ux, uy);
 	}
 
-	/** Step through "nice" zoom levels so pixels stay integer-sized. */
+	/** Step through "nice" zoom levels so pixels stay integer-sized (paintings zoom smoothly). */
 	zoomStep(dir: 1 | -1) {
+		if (this.paintMode) return this.zoomAt(dir > 0 ? 1.25 : 0.8);
 		const levels = [0.25, 0.5, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128];
 		const z = this.view.zoom;
 		const next = dir > 0 ? levels.find((l) => l > z + 1e-6) : [...levels].reverse().find((l) => l < z - 1e-6);

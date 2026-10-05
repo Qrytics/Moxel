@@ -5,24 +5,29 @@
 	import { app } from '../../state/app.svelte';
 	import { compositeFrame } from '../../core/render/composite';
 	import { validateSkin, validateTexture, type ValidationIssue } from '../../minecraft/validate';
-	import { downloadBytes, type SheetLayout } from '../../io/export';
+	import { downloadBytes, exportBrowserImage, type SheetLayout } from '../../io/export';
 	import { exportInWorker } from '../../io/exportClient';
 	import { MOXEL_EXT, safeFileName } from '../../io/moxelFile';
 
-	type Format = 'png' | 'gif' | 'sheet' | 'mcanim' | 'moxel';
+	type Format = 'png' | 'jpeg' | 'webp' | 'gif' | 'sheet' | 'mcanim' | 'moxel';
 	let { ed, open = $bindable(false) }: { ed: EditorState; open?: boolean } = $props();
 
 	let format = $state<Format>('png');
 	let scale = $state(1);
 	let layout = $state<SheetLayout>('horizontal');
 	let busy = $state(false);
+	let quality = $state(0.92);
+	let lossyScale = $state(1);
 
 	const isSkin = $derived(ed.doc.meta.kind === 'skin');
+	const isPaint = $derived(ed.doc.meta.kind === 'paint');
+	const lossy = $derived(format === 'jpeg' || format === 'webp');
 	const multi = $derived(ed.doc.frames.length > 1);
 	const issues = $derived.by<ValidationIssue[]>(() => {
 		if (!open) return [];
 		void ed.pixelsVersion;
 		void ed.metaVersion;
+		if (isPaint) return [];
 		if (isSkin)
 			return validateSkin(
 				compositeFrame(ed.doc, ed.activeFrameId),
@@ -55,7 +60,14 @@
 		await new Promise((r) => setTimeout(r, 16));
 		try {
 			const s = effectiveScale;
-			if (format === 'png')
+			if (format === 'jpeg' || format === 'webp') {
+				const type = format === 'jpeg' ? 'image/jpeg' : 'image/webp';
+				downloadBytes(
+					await exportBrowserImage(ed.doc, ed.activeFrameId, type, quality, lossyScale),
+					`${name}.${format === 'jpeg' ? 'jpg' : 'webp'}`,
+					type
+				);
+			} else if (format === 'png')
 				downloadBytes(
 					await exportInWorker(ed.doc, { kind: 'png', frameId: ed.activeFrameId, scale: s }),
 					`${name}${s > 1 ? `@${s}x` : ''}.png`,
@@ -91,27 +103,40 @@
 		}
 	}
 
-	const formats = $derived<[Format, string, string][]>([
-		[
-			'png',
-			isSkin ? 'Minecraft skin PNG' : 'PNG image',
-			isSkin ? '64×64, ready to upload to Minecraft' : multi ? 'Current frame, flattened' : 'Flattened image'
-		],
-		[
-			'gif',
-			'Animated GIF',
-			multi ? `${ed.doc.frames.length} frames, transparent background` : 'Single-frame GIF'
-		],
-		['sheet', 'Sprite sheet', 'All frames in one PNG'],
-		...(multi
-			? ([['mcanim', 'Minecraft animated texture', 'Vertical strip + .png.mcmeta (zip)']] as [
-					Format,
-					string,
-					string
-				][])
-			: []),
-		['moxel', 'Moxel project', 'Layers, frames and settings — for backup or another device']
-	]);
+	const formats = $derived<[Format, string, string][]>(
+		isPaint
+			? [
+					['png', 'PNG image', 'Lossless, keeps transparency'],
+					['jpeg', 'JPEG', 'Small files for sharing; transparency becomes white'],
+					['webp', 'WebP', 'Small files, keeps transparency'],
+					['moxel', 'Moxel project', 'Layers and settings — for backup or another device']
+				]
+			: [
+					[
+						'png',
+						isSkin ? 'Minecraft skin PNG' : 'PNG image',
+						isSkin
+							? '64×64, ready to upload to Minecraft'
+							: multi
+								? 'Current frame, flattened'
+								: 'Flattened image'
+					],
+					[
+						'gif',
+						'Animated GIF',
+						multi ? `${ed.doc.frames.length} frames, transparent background` : 'Single-frame GIF'
+					],
+					['sheet', 'Sprite sheet', 'All frames in one PNG'],
+					...(multi
+						? ([['mcanim', 'Minecraft animated texture', 'Vertical strip + .png.mcmeta (zip)']] as [
+								Format,
+								string,
+								string
+							][])
+						: []),
+					['moxel', 'Moxel project', 'Layers, frames and settings — for backup or another device']
+				]
+	);
 </script>
 
 <Dialog title="Export" bind:open width={520}>
@@ -129,7 +154,25 @@
 		{/each}
 	</div>
 
-	{#if format !== 'moxel' && format !== 'mcanim'}
+	{#if lossy}
+		<div class="row">
+			<label class="field">
+				Quality
+				<input type="range" min="0.5" max="1" step="0.01" bind:value={quality} aria-label="Quality" />
+				<span>{Math.round(quality * 100)}%</span>
+			</label>
+			<label class="field">
+				Size
+				<select class="input" bind:value={lossyScale}>
+					{#each [1, 0.5, 0.25] as s (s)}
+						<option value={s}
+							>{s * 100}% ({Math.round(ed.doc.width * s)}×{Math.round(ed.doc.height * s)})</option
+						>
+					{/each}
+				</select>
+			</label>
+		</div>
+	{:else if format !== 'moxel' && format !== 'mcanim' && !isPaint}
 		<div class="row">
 			<label class="field">
 				Scale

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Dialog from '../Dialog.svelte';
 	import type { EditorState } from '../../state/editor.svelte';
-	import { MAX_CANVAS_SIZE } from '../../core/document/types';
+	import { maxSize } from '../../core/document/types';
 
 	let { ed, mode = $bindable(null) }: { ed: EditorState; mode?: 'canvas' | 'image' | 'selection' | null } =
 		$props();
@@ -31,13 +31,9 @@
 		if (lock) w = Math.max(1, Math.round((v * base.w) / base.h));
 	}
 
+	const MAX = $derived(maxSize(ed.doc.meta.kind));
 	const valid = $derived(
-		Number.isInteger(w) &&
-			Number.isInteger(h) &&
-			w >= 1 &&
-			h >= 1 &&
-			w <= MAX_CANVAS_SIZE &&
-			h <= MAX_CANVAS_SIZE
+		Number.isInteger(w) && Number.isInteger(h) && w >= 1 && h >= 1 && w <= MAX && h <= MAX
 	);
 	const skinWarn = $derived(ed.doc.meta.kind === 'skin' && mode !== 'selection' && (w !== 64 || h !== 64));
 
@@ -73,7 +69,7 @@
 					class="input num"
 					type="number"
 					min="1"
-					max={MAX_CANVAS_SIZE}
+					max={MAX}
 					value={w}
 					oninput={(e) => setW(+e.currentTarget.value)}
 				/></label
@@ -84,7 +80,7 @@
 					class="input num"
 					type="number"
 					min="1"
-					max={MAX_CANVAS_SIZE}
+					max={MAX}
 					value={h}
 					oninput={(e) => setH(+e.currentTarget.value)}
 				/></label
@@ -126,7 +122,7 @@
 				</div>
 			</fieldset>
 		{/if}
-		{#if !valid}<p class="err">Sizes must be whole numbers from 1 to {MAX_CANVAS_SIZE}.</p>{/if}
+		{#if !valid}<p class="err">Sizes must be whole numbers from 1 to {MAX}.</p>{/if}
 		{#if skinWarn}<p class="warn">
 				Minecraft skins must be 64×64. Changing the size will make this skin invalid until you change it back.
 			</p>{/if}

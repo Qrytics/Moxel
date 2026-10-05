@@ -20,7 +20,7 @@
 	import { relativeTime } from '../time';
 
 	let newOpen = $state(false);
-	let newTab = $state<'skin' | 'texture' | 'canvas' | 'animation'>('skin');
+	let newTab = $state<'paint' | 'skin' | 'texture' | 'canvas' | 'animation'>('paint');
 	let renaming = $state<ProjectMeta | null>(null);
 	let renameValue = $state('');
 	let deleting = $state<ProjectMeta | null>(null);
@@ -124,6 +124,7 @@
 	function kindLabel(p: ProjectMeta) {
 		if (p.kind === 'skin') return `Skin · ${p.model === 'slim' ? 'Slim' : 'Classic'}`;
 		const size = `${p.width}×${p.height}`;
+		if (p.kind === 'paint') return `Painting · ${size}`;
 		if (p.frameCount > 1) return `Animation · ${size} · ${p.frameCount} frames`;
 		return p.kind === 'texture' ? `Texture · ${size}` : `Canvas · ${size}`;
 	}
@@ -161,10 +162,14 @@
 			<section class="welcome">
 				<h1>Welcome to Moxel</h1>
 				<p class="lede">
-					Create Minecraft skins, textures, pixel art and animations directly in your browser.
+					Paint, and create Minecraft skins, textures, pixel art and animations, directly in your browser.
 				</p>
 				<div class="actions">
-					<button class="action primary" onclick={() => newProject('skin')}>
+					<button class="action primary" onclick={() => newProject('paint')}>
+						<Icon name="paint" size={22} />
+						<strong>Start painting</strong><small>Smooth brushes, pressure, smudge</small>
+					</button>
+					<button class="action" onclick={() => newProject('skin')}>
 						<Icon name="cube" size={22} />
 						<strong>Create skin</strong><small>Classic or slim, with 3D preview</small>
 					</button>
@@ -198,7 +203,7 @@
 				<div class="list-head">
 					<h1>My projects</h1>
 					<div class="list-actions">
-						<button class="btn primary" onclick={() => newProject('skin')}
+						<button class="btn primary" onclick={() => newProject('paint')}
 							><Icon name="plus" size={16} /> New project</button
 						>
 						<button class="btn" onclick={() => doImport(IMPORT_ACCEPT)}

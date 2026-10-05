@@ -7,7 +7,8 @@
  * transparent; cels are created lazily the first time something is drawn into them.
  */
 
-export type DocKind = 'skin' | 'texture' | 'canvas';
+/** `paint` is the smooth-brush mode; the others are pixel art. Fixed when a project is created. */
+export type DocKind = 'skin' | 'texture' | 'canvas' | 'paint';
 export type SkinModel = 'classic' | 'slim';
 export type TextureType = 'block' | 'item' | 'gui' | 'entity' | 'other';
 export type BlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'add';
@@ -70,6 +71,10 @@ export interface TextureMeta {
 	type: TextureType;
 }
 
+export interface PaintMeta {
+	background: 'white' | 'transparent';
+}
+
 /** Everything about a document that isn't pixels or the layer tree. */
 export interface DocMeta {
 	id: string;
@@ -81,6 +86,7 @@ export interface DocMeta {
 	updatedAt: number;
 	skin?: SkinMeta;
 	texture?: TextureMeta;
+	paint?: PaintMeta;
 	animation: AnimationSettings;
 	/** Project palette (hex strings, `#rrggbbaa` or `#rrggbb`). */
 	palette: string[];
@@ -89,7 +95,8 @@ export interface DocMeta {
 /** Serializable (structured-clone friendly) snapshot of a whole document. */
 export interface DocSnapshot {
 	format: 'moxel';
-	version: 1;
+	/** 1 for pixel documents; 2 for paint documents, so builds that predate paint refuse them. */
+	version: 1 | 2;
 	meta: DocMeta;
 	nodes: DocNode[];
 	root: string[];
@@ -119,3 +126,8 @@ export const DEFAULT_ANIMATION: AnimationSettings = {
 };
 
 export const MAX_CANVAS_SIZE = 1024;
+/** Paint documents may be larger: their strokes are tiled, so cost follows the painted area. */
+export const MAX_PAINT_SIZE = 4096;
+
+export const maxSize = (kind: DocKind) => (kind === 'paint' ? MAX_PAINT_SIZE : MAX_CANVAS_SIZE);
+export const isPaint = (meta: Pick<DocMeta, 'kind'>) => meta.kind === 'paint';
