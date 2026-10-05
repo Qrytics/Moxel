@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { focusOnMount } from '../actions';
 	import type { EditorState } from '../../state/editor.svelte';
 	import { BLEND_MODES, type BlendMode, type DocNode } from '../../core/document/types';
 	import { compositeRect } from '../../core/render/composite';
@@ -267,11 +268,10 @@
 						use:thumb={{ id: n.id, v: `${ed.pixelsVersion}:${ed.structureVersion}:${ed.activeFrameId}` }}
 					></canvas>
 					{#if editing === n.id}
-						<!-- svelte-ignore a11y_autofocus -->
 						<input
 							class="input rename"
 							bind:value={editValue}
-							autofocus
+							use:focusOnMount
 							onblur={commitRename}
 							onclick={(e) => e.stopPropagation()}
 							onkeydown={(e) => {

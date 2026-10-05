@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { focusOnMount } from '../actions';
 	import { onMount } from 'svelte';
 	import { app } from '../../state/app.svelte';
 	import { collab } from '../../state/collab.svelte';
@@ -400,11 +401,10 @@
 			{#if !narrow}<MenuBar {ed} {run} />{/if}
 			<div class="doc-name">
 				{#if renaming}
-					<!-- svelte-ignore a11y_autofocus -->
 					<input
 						class="input"
 						bind:value={nameValue}
-						autofocus
+						use:focusOnMount
 						onblur={commitName}
 						onkeydown={(e) => {
 							if (e.key === 'Enter') commitName();

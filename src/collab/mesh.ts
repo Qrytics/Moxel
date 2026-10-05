@@ -73,7 +73,9 @@ export class Mesh {
 				);
 			}
 		}, 8000);
+		let opened = false;
 		ws.onopen = () => {
+			opened = true;
 			clearTimeout(timeout);
 			ws.send(JSON.stringify({ t: 'join', room: this.room, ...this.self }));
 		};
@@ -86,8 +88,13 @@ export class Mesh {
 				);
 		};
 		ws.onclose = () => {
-			if (!this.closed && this.peers.size === 0)
-				this.ev.onStatus('error', 'Disconnected from the live-session server.');
+			if (this.closed || this.peers.size > 0) return;
+			this.ev.onStatus(
+				'error',
+				opened
+					? 'Disconnected from the live-session server.'
+					: 'Live sessions are unavailable right now — the session server could not be reached.'
+			);
 		};
 		ws.onmessage = (e) => {
 			let msg: { t: string; [k: string]: unknown };

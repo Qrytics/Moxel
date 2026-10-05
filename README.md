@@ -82,7 +82,7 @@ npm run signal     # optional: local signaling relay on :8787 for live sessions 
 | Production build                     | `npm run build`                                              |
 | Everything above                     | `npm run verify`                                             |
 | Preview the build at `/Moxel/`       | `npm run preview`                                            |
-| End-to-end suite (31 checks)         | `npm run build && npm i --no-save playwright && npm run e2e` |
+| End-to-end suite (32 checks)         | `npm run build && npm i --no-save playwright && npm run e2e` |
 | Regenerate PWA icons                 | `npm run icons`                                              |
 
 The e2e suite runs against the real production build under `/Moxel/`: it creates a skin, draws,

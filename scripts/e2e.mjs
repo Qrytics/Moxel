@@ -103,6 +103,7 @@ try {
 
 	console.log('First run');
 	await page.goto(BASE);
+	await page.getByRole('heading', { name: 'Welcome to Moxel' }).waitFor();
 	check(
 		await page.getByRole('heading', { name: 'Welcome to Moxel' }).isVisible(),
 		'welcome screen shown at /Moxel/'
@@ -143,6 +144,13 @@ try {
 	console.log('Layers');
 	await page.getByRole('button', { name: 'New layer' }).click();
 	check((await page.locator('.layers li.row').count()) === 2, 'new layer added');
+	await page.locator('.layers .main').first().dblclick();
+	await page.keyboard.type('Hair');
+	await page.keyboard.press('Enter');
+	check(
+		(await page.locator('.layers .name').first().textContent())?.trim() === 'Hair',
+		'layer renamed inline (typing does not trigger tool shortcuts)'
+	);
 	await page.locator('#color-hex').fill('#00ff00');
 	await page.locator('#color-hex').press('Enter');
 	const c = await canvasPoint(page, 20, 20);
