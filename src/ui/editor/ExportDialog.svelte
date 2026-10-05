@@ -5,16 +5,9 @@
 	import { app } from '../../state/app.svelte';
 	import { compositeFrame } from '../../core/render/composite';
 	import { validateSkin, validateTexture, type ValidationIssue } from '../../minecraft/validate';
-	import {
-		downloadBytes,
-		exportFlattenedPNG,
-		exportGIF,
-		minecraftAnimation,
-		spriteSheet,
-		type SheetLayout
-	} from '../../io/export';
-	import { safeFileName } from '../../io/moxelFile';
-	import { exportProjectFile } from '../../state/projects';
+	import { downloadBytes, type SheetLayout } from '../../io/export';
+	import { exportInWorker } from '../../io/exportClient';
+	import { MOXEL_EXT, safeFileName } from '../../io/moxelFile';
 
 	type Format = 'png' | 'gif' | 'sheet' | 'mcanim' | 'moxel';
 	let { ed, open = $bindable(false) }: { ed: EditorState; open?: boolean } = $props();
@@ -64,16 +57,30 @@
 			const s = effectiveScale;
 			if (format === 'png')
 				downloadBytes(
-					exportFlattenedPNG(ed.doc, ed.activeFrameId, s),
+					await exportInWorker(ed.doc, { kind: 'png', frameId: ed.activeFrameId, scale: s }),
 					`${name}${s > 1 ? `@${s}x` : ''}.png`,
 					'image/png'
 				);
-			else if (format === 'gif') downloadBytes(exportGIF(ed.doc, s), `${name}.gif`, 'image/gif');
+			else if (format === 'gif')
+				downloadBytes(await exportInWorker(ed.doc, { kind: 'gif', scale: s }), `${name}.gif`, 'image/gif');
 			else if (format === 'sheet')
-				downloadBytes(spriteSheet(ed.doc, layout, s).png, `${name}-sheet.png`, 'image/png');
+				downloadBytes(
+					await exportInWorker(ed.doc, { kind: 'sheet', layout, scale: s }),
+					`${name}-sheet.png`,
+					'image/png'
+				);
 			else if (format === 'mcanim')
-				downloadBytes(minecraftAnimation(ed.doc, name).zip, `${name}-animated.zip`, 'application/zip');
-			else await exportProjectFile(ed.doc);
+				downloadBytes(
+					await exportInWorker(ed.doc, { kind: 'mcanim', baseName: name }),
+					`${name}-animated.zip`,
+					'application/zip'
+				);
+			else
+				downloadBytes(
+					await exportInWorker(ed.doc, { kind: 'moxel' }),
+					`${name}${MOXEL_EXT}`,
+					'application/zip'
+				);
 			app.toast('Exported. Your project is still saved locally.', 'success');
 			open = false;
 		} catch (e) {

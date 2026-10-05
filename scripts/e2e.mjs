@@ -201,6 +201,20 @@ try {
 	check(proj.suggestedFilename().endsWith('.moxel'), 'exported a .moxel project');
 	const projPath = await proj.path();
 
+	console.log('Import an existing skin PNG');
+	const pngPath = await download.path();
+	const fresh = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+	const p3 = await fresh.newPage();
+	await p3.goto(BASE);
+	const [pngChooser] = await Promise.all([
+		p3.waitForEvent('filechooser'),
+		p3.getByRole('button', { name: /Import PNG/ }).click()
+	]);
+	await pngChooser.setFiles({ name: 'my-skin.png', mimeType: 'image/png', buffer: readFileSync(pngPath) });
+	await p3.waitForSelector('canvas[aria-label^="Drawing canvas"]');
+	check(await p3.getByText('Slim skin').isVisible(), 'PNG imported as a skin with the slim model detected');
+	await fresh.close();
+
 	console.log('Import .moxel in a fresh browser profile');
 	const other = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 	const p2 = await other.newPage();
@@ -263,6 +277,35 @@ try {
 	const hp = await storedPixel(page, 44, 12);
 	check(hp?.[0] === 255 && hp?.[1] === 255, "guest's stroke appeared on the host's canvas");
 	await guestCtx.close();
+
+	console.log('Live session: side by side');
+	await page.getByRole('button', { name: /Live session/ }).click();
+	await page.getByRole('button', { name: 'Leave session' }).click();
+	await page.getByRole('button', { name: /Live session/ }).click();
+	await page.getByRole('radio', { name: /Side by side/ }).click();
+	await page.getByRole('button', { name: 'Start session' }).click();
+	const sideInvite = await page.locator('dialog input[readonly]').inputValue();
+	check(sideInvite.includes('mode=side'), 'side-by-side invite link');
+	await page.getByRole('button', { name: 'Done' }).click();
+	const sideCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+	const side = await sideCtx.newPage();
+	await side.goto(sideInvite);
+	await side.locator('input').first().fill('Friend');
+	await side.getByRole('button', { name: 'Join session' }).click();
+	await side.getByRole('button', { name: 'New skin' }).click({ timeout: 20000 });
+	await side.waitForSelector('canvas[aria-label^="Drawing canvas"]');
+	await side.waitForSelector('.friends figure', { timeout: 15000 });
+	check(true, "friend sees the host's canvas tile");
+	await page.waitForSelector('.friends figure', { timeout: 15000 });
+	check(
+		await page
+			.locator('.friends figcaption')
+			.first()
+			.textContent()
+			.then((t) => t.includes('Friend')),
+		"host sees the friend's canvas tile"
+	);
+	await sideCtx.close();
 
 	check(errors.length === 0, `no page errors${errors.length ? `: ${errors.join(' | ')}` : ''}`);
 	await context.close();

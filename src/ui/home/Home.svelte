@@ -508,7 +508,7 @@
 		margin: 0;
 		padding: 0;
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
 		gap: 14px;
 	}
 	.card {
@@ -566,6 +566,9 @@
 	.text small {
 		color: var(--text-3);
 		font-size: 12px;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	.card-actions {
 		display: flex;

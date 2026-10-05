@@ -29,6 +29,7 @@
 	function leave() {
 		collab.leave();
 		ed.peerId = undefined;
+		open = false;
 		app.toast('You left the live session. Your copy stays saved in this browser.');
 	}
 </script>

@@ -81,7 +81,7 @@ export class EditorState {
 	activeFrameId = $state('');
 	tool = $state<ToolId>('pencil');
 	settings = $state<ToolSettings>(defaultToolSettings());
-	fg = $state<RGBA>([34, 34, 40, 255]);
+	fg = $state<RGBA>([0, 0, 0, 255]);
 	bg = $state<RGBA>([255, 255, 255, 255]);
 	save = $state<AutosaveState>({ status: 'idle', lastSaved: null });
 	workspace = $state<Workspace>('split');

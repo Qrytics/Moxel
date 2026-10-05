@@ -65,9 +65,10 @@ export class CanvasRenderer {
 		const c = document.createElement('canvas');
 		c.width = c.height = 16;
 		const g = c.getContext('2d')!;
-		g.fillStyle = '#3a3b40';
+		// Mid-grey checks: dark enough for white paint, light enough for black paint.
+		g.fillStyle = '#76777e';
 		g.fillRect(0, 0, 16, 16);
-		g.fillStyle = '#2d2e33';
+		g.fillStyle = '#606168';
 		g.fillRect(0, 0, 8, 8);
 		g.fillRect(8, 8, 8, 8);
 		this.checker = this.ctx.createPattern(c, 'repeat');
@@ -306,7 +307,13 @@ export class CanvasRenderer {
 	}
 }
 
-export function fitView(docW: number, docH: number, cssW: number, cssH: number, margin = 48): ViewState {
+export function fitView(
+	docW: number,
+	docH: number,
+	cssW: number,
+	cssH: number,
+	margin = Math.min(48, Math.min(cssW, cssH) * 0.04)
+): ViewState {
 	const zoom = Math.max(
 		MIN_ZOOM,
 		Math.min(MAX_ZOOM, Math.min((cssW - margin * 2) / docW, (cssH - margin * 2) / docH))

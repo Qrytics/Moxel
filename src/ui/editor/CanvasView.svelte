@@ -112,7 +112,14 @@
 			}
 		}, 120);
 		const keydown = (e: KeyboardEvent) => {
-			if (e.code === 'Space' && !isTyping(e)) {
+			// Only hijack Space when it isn't activating a focused control.
+			const t = e.target as HTMLElement | null;
+			const onControl =
+				!!t &&
+				t !== document.body &&
+				t !== canvas &&
+				!!t.closest('button, a, [role=button], [role=menuitem], [role=radio], [role=tab], select, summary');
+			if (e.code === 'Space' && !isTyping(e) && !onControl) {
 				if (!spaceHeld) spaceHeld = true;
 				e.preventDefault();
 			}

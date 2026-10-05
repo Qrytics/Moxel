@@ -462,7 +462,14 @@
 						>
 					</div>
 				{/if}
-				<button class="btn live-btn" class:on={!!live} onclick={() => (liveOpen = true)}>
+				{#if narrow}<span class="save-dot {save.cls}" role="status" aria-label={save.text} title={save.text}
+					></span>{/if}
+				<button
+					class="btn live-btn"
+					class:on={!!live}
+					aria-label="Live session"
+					onclick={() => (liveOpen = true)}
+				>
 					<Icon name="users" size={16} />
 					{#if live}{live.peers.length + 1}{:else}{narrow ? '' : 'Live'}{/if}
 				</button>
@@ -535,12 +542,9 @@
 			</div>
 			{#if drawer}
 				<div class="drawer scroll" role="dialog" aria-label={drawer === 'color' ? 'Colours' : 'Layers'}>
-					<div class="drawer-head">
-						<strong>{drawer === 'color' ? 'Colour' : 'Layers'}</strong>
-						<button class="icon-btn" aria-label="Close panel" onclick={() => (drawer = null)}
-							><Icon name="close" /></button
-						>
-					</div>
+					<button class="icon-btn drawer-close" aria-label="Close panel" onclick={() => (drawer = null)}
+						><Icon name="close" /></button
+					>
 					{#if drawer === 'color'}<ColorPanel {ed} />{:else}<LayersPanel {ed} />{/if}
 				</div>
 			{/if}
@@ -652,6 +656,19 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 5px;
+	}
+	.save-dot {
+		width: 9px;
+		height: 9px;
+		border-radius: 50%;
+		background: var(--ok);
+		flex: none;
+	}
+	.save-dot.pending {
+		background: var(--warn);
+	}
+	.save-dot.err {
+		background: var(--err);
 	}
 	.live-btn.on {
 		border-color: #2f6b4f;
@@ -779,11 +796,14 @@
 			opacity: 0;
 		}
 	}
-	.drawer-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 8px 8px 0 14px;
+	.drawer-close {
+		position: absolute;
+		top: 2px;
+		right: 4px;
+		z-index: 1;
+	}
+	.drawer :global(.panel-title) {
+		padding-right: 40px;
 	}
 	.narrow .top {
 		gap: 4px;
